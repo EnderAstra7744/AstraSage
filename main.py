@@ -27,6 +27,8 @@ from utils.server_manager import add_server, delete_server, list_servers
 from utils.can_command import run_can_command
 from utils.astra_ocunt import run_ao_command
 from utils.api_manager import run_api_command
+from utils.read_info import read_file, info_file
+
 
 
 did_you_mean = False
@@ -217,7 +219,19 @@ def main():
         
         elif eylem == "codeeditor":
           open_code_editor(installed_languages)
+        elif eylem == "read":
+          if len(parcalar) < 3:
+            print("Kullanım: as read -<dosya yolu>")
+            continue
+          dosya_yolu = parcalar[2].lstrip("-")
+          read_file(dosya_yolu)
         
+        elif eylem == "info":
+          if len(parcalar) < 3:
+            print("Kullanım: as info -<dosya yolu>")
+            continue
+          dosya_yolu = parcalar[2].lstrip("-")
+          info_file(dosya_yolu)
         elif eylem == "unexport":
           if len(parcalar) < 3:
             print("Kullanım: as unexport <kütüphane>")
@@ -389,6 +403,7 @@ def help_menu():
   print("  as-api -<isim.cf> -<link/install>")
   print("  as-api list / remove")
   print("  as history")
+  print("  as <info,read>  -<dosya yolu>")
 
 #Ana Menü
 def banner():
