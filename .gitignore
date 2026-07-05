@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+data.json
+installed_languages.json
+ocunt_packages.json
+assets/history.json
+assets/astrasage_theme.json
+.signature
+commands/
+packages/
+assets/created_projects/
