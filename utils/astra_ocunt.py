@@ -38,44 +38,69 @@ def install_package(paket):
     if paket in packages:
         print(f"'{paket}' zaten kurulu.")
         return
+    
     print(f"'{paket}' kuruluyor...")
+    print("-" * 40)
+    
     try:
-        result = subprocess.run(
+        # capture_output=False yerine gerçek zamanlı çıktı için Popen kullanıyoruz
+        process = subprocess.Popen(
             [sys.executable, "-m", "pip", "install", paket],
-            capture_output=True, text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # stderr'i de stdout'a yönlendir
+            text=True,
+            bufsize=1  # satır satır oku
         )
-        if result.returncode == 0:
+        
+        # Çıktıyı gerçek zamanlı ekrana yaz
+        for satir in process.stdout:
+            print(satir, end="")
+        
+        process.wait()  # işlem bitene kadar bekle
+        print("-" * 40)
+        
+        if process.returncode == 0:
             packages.append(paket)
             save_packages(packages)
             print(f"'{paket}' başarıyla kuruldu.")
         else:
-            print(f"[HATA] '{paket}' kurulamadı:")
-            print(result.stderr)
+            print(f"[HATA] '{paket}' kurulamadı.")
+    
     except Exception as error:
         print(f"[HATA] Kurulum sırasında hata oluştu: {error}")
-
-
 def remove_package(paket):
     packages = load_packages()
     if paket not in packages:
         print(f"'{paket}' AstraOcunt ile kurulmamış.")
         return
+    
     print(f"'{paket}' kaldırılıyor...")
+    print("-" * 40)
+    
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             [sys.executable, "-m", "pip", "uninstall", paket, "-y"],
-            capture_output=True, text=True
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1
         )
-        if result.returncode == 0:
+        
+        for satir in process.stdout:
+            print(satir, end="")
+        
+        process.wait()
+        print("-" * 40)
+        
+        if process.returncode == 0:
             packages.remove(paket)
             save_packages(packages)
             print(f"'{paket}' başarıyla kaldırıldı.")
         else:
-            print(f"[HATA] '{paket}' kaldırılamadı:")
-            print(result.stderr)
+            print(f"[HATA] '{paket}' kaldırılamadı.")
+    
     except Exception as error:
         print(f"[HATA] Kaldırma sırasında hata oluştu: {error}")
-
 
 def start_service(kutuphane_ismi):
     if kutuphane_ismi in _aktif_servisler:
