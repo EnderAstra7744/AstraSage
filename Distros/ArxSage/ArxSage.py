@@ -8,6 +8,9 @@ import platform
 import socket
 import hashlib
 import datetime
+import ssl
+import urllib.request
+import urllib.error
 
 #ArxSage kök dizini
 ARX_KOK = os.path.dirname(os.path.abspath(__file__))
@@ -303,7 +306,158 @@ def arx_cd(hedef):
     arx_mevcut_dizin[0] = yeni
     print(f"→ {arx_mevcut_dizin[0]}")
 
+# ==================== ETİK HACKER ARAÇLARI ====================
 
+def arx_whois(domain):
+    """Whois sorgusu yapar."""
+    print(f"\n{ArxRenk.SARI}[ArxSage/Recon] Whois: {domain}{ArxRenk.RESET}")
+    try:
+        # Whois sunucusuna bağlan
+        whois_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        whois_socket.settimeout(10)
+        whois_socket.connect(("whois.iana.org", 43))
+        whois_socket.send(f"{domain}\r\n".encode())
+        
+        cevap = b""
+        while True:
+            veri = whois_socket.recv(4096)
+            if not veri:
+                break
+            cevap += veri
+        whois_socket.close()
+        
+        # İlgili satırları filtrele
+        satirlar = cevap.decode("utf-8", errors="ignore").splitlines()
+        for satir in satirlar:
+            if any(k in satir.lower() for k in ["domain", "registrar", "creation", "expir", "name server", "status", "whois"]):
+                print(f"  {satir.strip()}")
+    
+    except Exception as hata:
+        print(f"[HATA] Whois sorgusu başarısız: {hata}")
+
+
+def arx_subdomain(domain):
+    """Yaygın subdomain'leri kontrol eder."""
+    print(f"\n{ArxRenk.SARI}[ArxSage/Recon] Subdomain Tarama: {domain}{ArxRenk.RESET}")
+    print(ArxRenk.GRI + "Yaygın subdomain'ler kontrol ediliyor..." + ArxRenk.RESET)
+    print("-" * 35)
+
+    YAYGIN_SUBDOMAINLER = [
+        "www", "mail", "ftp", "smtp", "pop", "imap",
+        "api", "dev", "test", "staging", "admin",
+        "blog", "shop", "store", "app", "mobile",
+        "cdn", "static", "media", "img", "images",
+        "vpn", "remote", "portal", "secure", "login",
+        "m", "ns1", "ns2", "dns", "mx", "webmail",
+    ]
+
+    bulunanlar = []
+    for sub in YAYGIN_SUBDOMAINLER:
+        hedef = f"{sub}.{domain}"
+        try:
+            ip = socket.gethostbyname(hedef)
+            bulunanlar.append((hedef, ip))
+            print(f"{ArxRenk.YESIL}[BULUNDU] {hedef:<35} → {ip}{ArxRenk.RESET}")
+        except socket.gaierror:
+            pass  # Bulunamadı, sessizce geç
+
+    print("-" * 35)
+    if bulunanlar:
+        print(f"Toplam {len(bulunanlar)} subdomain bulundu.")
+    else:
+        print("Hiçbir subdomain bulunamadı.")
+
+
+def arx_http_headers(url):
+    """Web sitesinin HTTP güvenlik başlıklarını analiz eder."""
+    print(f"\n{ArxRenk.SARI}[ArxSage/Recon] HTTP Başlık Analizi: {url}{ArxRenk.RESET}")
+
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    GUVENLIK_BASLIKLARI = {
+        "Strict-Transport-Security": "HSTS - HTTPS zorlaması",
+        "Content-Security-Policy": "XSS ve injection koruması",
+        "X-Frame-Options": "Clickjacking koruması",
+        "X-Content-Type-Options": "MIME sniffing koruması",
+        "X-XSS-Protection": "XSS filtresi",
+        "Referrer-Policy": "Referrer bilgisi kontrolü",
+        "Permissions-Policy": "Tarayıcı izin politikası",
+        "Server": "Sunucu bilgisi (gizlenmiş olmalı)",
+    }
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "ArxSage/1.0"})
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+
+        with urllib.request.urlopen(req, context=context, timeout=10) as response:
+            basliklar = dict(response.headers)
+            print(f"Durum Kodu : {response.status}")
+            print("-" * 45)
+
+            print(f"\n{ArxRenk.SARI}Güvenlik Başlıkları:{ArxRenk.RESET}")
+            for baslik, aciklama in GUVENLIK_BASLIKLARI.items():
+                deger = basliklar.get(baslik) or basliklar.get(baslik.lower())
+                if deger:
+                    print(f"{ArxRenk.YESIL}  [VAR]    {baslik}{ArxRenk.RESET}")
+                    print(f"           {aciklama}")
+                    print(f"           Değer: {deger[:80]}")
+                else:
+                    print(f"{ArxRenk.KIRMIZI}  [EKSİK]  {baslik}{ArxRenk.RESET}")
+                    print(f"           {aciklama}")
+
+    except urllib.error.URLError as hata:
+        print(f"[HATA] Bağlantı kurulamadı: {hata}")
+    except Exception as hata:
+        print(f"[HATA] {hata}")
+
+
+def arx_ssl(domain):
+    """SSL/TLS sertifikasını analiz eder."""
+    print(f"\n{ArxRenk.SARI}[ArxSage/Recon] SSL/TLS Sertifika: {domain}{ArxRenk.RESET}")
+
+    try:
+        context = ssl.create_default_context()
+        with socket.create_connection((domain, 443), timeout=10) as sock:
+            with context.wrap_socket(sock, server_hostname=domain) as ssock:
+                sertifika = ssock.getpeercert()
+                protokol = ssock.version()
+                sifreler = ssock.cipher()
+
+        print(f"Protokol   : {protokol}")
+        print(f"Şifre      : {sifreler[0] if sifreler else 'Bilinmiyor'}")
+        print("-" * 35)
+
+        # Konu bilgisi
+        konu = dict(x[0] for x in sertifika.get("subject", []))
+        print(f"Domain     : {konu.get('commonName', 'Bilinmiyor')}")
+        print(f"Kuruluş    : {konu.get('organizationName', 'Bilinmiyor')}")
+
+        # Veren
+        veren = dict(x[0] for x in sertifika.get("issuer", []))
+        print(f"Veren      : {veren.get('organizationName', 'Bilinmiyor')}")
+
+        # Geçerlilik
+        bitis = sertifika.get("notAfter", "Bilinmiyor")
+        print(f"Son Geçerlilik: {bitis}")
+
+        # Alternatif isimler
+        san = sertifika.get("subjectAltName", [])
+        if san:
+            print(f"\nAlt. İsimler ({len(san)}):")
+            for tip, deger in san[:5]:
+                print(f"  {tip}: {deger}")
+            if len(san) > 5:
+                print(f"  ... ve {len(san)-5} tane daha")
+
+    except ssl.SSLError as hata:
+        print(f"[HATA] SSL hatası: {hata}")
+    except ConnectionRefusedError:
+        print(f"[HATA] Port 443 kapalı veya bağlantı reddedildi.")
+    except Exception as hata:
+        print(f"[HATA] {hata}")
 # ==================== YARDIM ====================
 
 def arx_help():
@@ -337,8 +491,13 @@ def arx_help():
     print("  arx pwd                           → mevcut dizin")
     print("  arx clear                         → ekranı temizle")
     print("  arx return -<Distro/AstraSage>    → geri dön")
+    
+    print(f"\n{ArxRenk.SARI}[ Keşif / Recon ]{ArxRenk.RESET}")
+    print("  arx recon whois <domain>          → domain bilgisi")
+    print("  arx recon subdomain <domain>      → subdomain tara")
+    print("  arx recon headers <url>           → HTTP başlık analizi")
+    print("  arx recon ssl <domain>            → SSL sertifika analizi")
     print(f"\n{ArxRenk.KIRMIZI}{'='*45}{ArxRenk.RESET}")
-
 
 # ==================== ANA DÖNGÜ ====================
 
@@ -348,7 +507,7 @@ def run():
 
     while True:
         try:
-            komut = input(f"{ArxRenk.KIRMIZI}arx@ArxSage:{ArxRenk.RESET}{arx_mevcut_dizin[0]}# ")
+            komut = input(f"\n{ArxRenk.KIRMIZI}arx@ArxSage:{ArxRenk.RESET}{arx_mevcut_dizin[0]}# ")
             parcalar = komut.strip().split()
 
             if not parcalar:
@@ -385,7 +544,27 @@ def run():
                     arx_myip()
                 else:
                     print(f"[HATA] '{alt}' tanımlı değil.")
-
+                    
+            # --- RECON ---
+            elif kategori == "recon":
+                if len(parcalar) < 3:
+                    print("Kullanım: arx recon <whois|subdomain|headers|ssl> ...")
+                    continue
+                alt = parcalar[2]
+                if alt == "whois":
+                    if len(parcalar) < 4: print("Kullanım: arx recon whois <domain>"); continue
+                    arx_whois(parcalar[3])
+                elif alt == "subdomain":
+                    if len(parcalar) < 4: print("Kullanım: arx recon subdomain <domain>"); continue
+                    arx_subdomain(parcalar[3])
+                elif alt == "headers":
+                    if len(parcalar) < 4: print("Kullanım: arx recon headers <url>"); continue
+                    arx_http_headers(parcalar[3])
+                elif alt == "ssl":
+                    if len(parcalar) < 4: print("Kullanım: arx recon ssl <domain>"); continue
+                    arx_ssl(parcalar[3])
+                else:
+                    print(f"[HATA] '{alt}' tanımlı değil.")
             # --- FILE ---
             elif kategori == "file":
                 if len(parcalar) < 3:

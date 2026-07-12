@@ -347,9 +347,23 @@ def main():
       
       elif komut == "astra-sage-reto":
         open_advanced_panel()
+      elif komut == "$depsage":
+        print("      -DepSage Comminity-")
+        show_progress_bar(20, 0.05)
+        dep_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "DepSage", "DepSage.py")
+        if not os.path.exists(dep_yolu):
+          print("[HATA] DepSage bulunamadı. Distros/DepSage/DepSage.py mevcut olmalı.")
+        else:
+          spec = importlib.util.spec_from_file_location("DepSage", dep_yolu)
+          dep_mod = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(dep_mod)
+          dep_mod.run()
+          # DepSage'den döndükten sonra AstraSage banner'ını tekrar göster
+          clear(os)
+          banner()
       elif komut == "$arxsage":
         print("      -ArxSage Comminity-")
-        show_progress_bar(20, 0.2)
+        show_progress_bar(20, 0.05)
         arx_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "ArxSage", "ArxSage.py")
         if not os.path.exists(arx_yolu):
           print("[HATA] ArxSage bulunamadı. Distros/ArxSage/ArxSage.py mevcut olmalı.")
