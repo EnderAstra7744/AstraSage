@@ -31,6 +31,8 @@ class DepRenk:
     RESET = "\033[0m"
     BOLD = "\033[1m"
 
+
+
 LOGO = """
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -763,7 +765,7 @@ def dep_cd(hedef):
 
 # ==================== ANA DÖNGÜ ====================
 
-def run():
+def dep_run():
     dep_clear()
     depsage_banner()
 
@@ -775,7 +777,7 @@ def run():
 
             if not parcalar:
                 continue
-
+                
             if parcalar[0] != "dep":
                 print(f"[HATA] DepSage komutları 'dep' ile başlamalı.")
                 continue
@@ -933,7 +935,8 @@ def run():
                 hedef = parcalar[2].lstrip("-") if len(parcalar) >= 3 else "AstraSage"
                 print(f"\n{DepRenk.GRI}DepSage'den '{hedef}'e dönülüyor...{DepRenk.RESET}")
                 time.sleep(0.8)
-                break
+                dep_clear()
+                return
             else:
                 print(f"[HATA] '{kategori}' tanımlı değil. 'dep help' yaz.")
 
@@ -942,4 +945,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+   dep_run()

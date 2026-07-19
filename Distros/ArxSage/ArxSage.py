@@ -11,8 +11,11 @@ import datetime
 import ssl
 import urllib.request
 import urllib.error
+import importlib.util
+import importlib
 
 #ArxSage kök dizini
+ASTRASAGE_KOK = os.getcwd()  # AstraSage'in gerçek kök dizini, hiç değişmez
 ARX_KOK = os.path.dirname(os.path.abspath(__file__))
 ASTRASAGE_KOK = os.path.dirname(os.path.dirname(ARX_KOK))
 
@@ -512,7 +515,6 @@ def run():
 
             if not parcalar:
                 continue
-
             if parcalar[0] != "arx":
                 print(f"[HATA] ArxSage komutları 'arx' ile başlamalı.")
                 continue
@@ -632,10 +634,8 @@ def run():
                 arx_clear()
                 arxsage_banner()
             elif kategori == "return":
-                hedef = parcalar[2].lstrip("-") if len(parcalar) >= 3 else "AstraSage"
-                print(f"\n{ArxRenk.GRI}ArxSage'den '{hedef}'e dönülüyor...{ArxRenk.RESET}")
-                time.sleep(0.8)
-                break
+              arx_clear()
+              return
             else:
                 print(f"[HATA] '{kategori}' tanımlı değil. 'arx help' yaz.")
 

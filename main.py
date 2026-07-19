@@ -17,6 +17,7 @@ import ASE
 import getpass
 import sys
 import subprocess
+import readline
 from utils.code_editor import open_code_editor
 from utils.updater import update_system, show_update_history
 from utils.at_helper import extract_at_target, resolve_target_path
@@ -29,15 +30,76 @@ from utils.astra_ocunt import run_ao_command
 from utils.api_manager import run_api_command
 from utils.read_info import read_file, info_file
 from utils.astra_security import tara
+from Distros.ArxSage.ArxSage import run
+from Distros.DepSage.DepSage import dep_run
 import importlib.util as _ilu
+from prompt_toolkit import prompt
+from prompt_toolkit import PromptSession
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import ANSI
 
+ALL_COMMANDS = []
+
+COMMAND_TREE = {
+    "as": {
+        "help": {},
+        "clear": {},
+        "list": {
+            "-libraries": {}
+        },
+        "history": {
+            "-clear": {}
+        },
+        "sys": {
+            "-neofetch": {}
+        },
+       "cd": "__DIRS__",
+       "ls": "__DIRS__",
+       "pwd": {},
+       "export": "__FILES__",
+       "unexport": {},
+       "update": {},
+       "codeeditor": {},
+        "encode": "__FILES__",
+        "platform": {
+            "-get": {
+                "name": {},
+                "version": {},
+                "machine": {},
+                "processor": {},
+                "node": {},
+                "bit": {},
+                "all": {}
+            }
+        },
+        "server": {
+            "add": {},
+            "delete": {},
+            "list": {}
+        }
+    },
+
+    "ai": {},
+    "ao": {},
+    "as-api": {},
+
+    "$arxsage": {},
+    "$depsage": {},
+    "\\boot": {},
+    "astra-sage-reto": {},
+    "read": "__FILES__",
+    "info": "__FILES__",
+}
+
+kb = KeyBindings()
+session = PromptSession(key_bindings=kb)
 
 did_you_mean = False
 mevcut_dizin = [os.getcwd()]
 ASTRASAGE_KOK = os.getcwd()  # AstraSage'in gerçek kök dizini, hiç değişmez
 
 TEMA_DOSYASI = os.path.join(ASTRASAGE_KOK, "assets", "astrasage_theme.json")
-  
 
 def load_theme():
     if not os.path.exists(TEMA_DOSYASI):
@@ -101,14 +163,205 @@ def load_dynamic_commands():
             alt_yol = os.path.join(tam_yol, isim, "main.py")
             if os.path.exists(alt_yol):
                 dinamik_komutlar[isim] = alt_yol
-    
     return dinamik_komutlar
+def complete_command(text):
+    parts = text.split()
+
+    if text.endswith(" "):
+        parts.append("")
+
+    tree = COMMAND_TREE
+
+    for part in parts[:-1]:
+
+        # Dosya / klasör düğümüne geldiysek dur
+        if tree in ("__DIRS__", "__FILES__", "__LIBRARIES__"):
+            break
+
+        if isinstance(tree, dict) and part in tree:
+            tree = tree[part]
+        else:
+            return text
+
+    current = parts[-1]
+
+    # ----------------------------
+    # Klasör Tamamlama
+    # ----------------------------
+    if tree == "__DIRS__":
+
+        try:
+            klasorler = [
+                d for d in os.listdir(mevcut_dizin[0])
+                if os.path.isdir(os.path.join(mevcut_dizin[0], d))
+            ]
+        except:
+            return text
+
+        matches = [
+            d for d in klasorler
+            if d.startswith(current)
+        ]
+
+    # ----------------------------
+    # Dosya Tamamlama
+    # ----------------------------
+    elif tree == "__FILES__":
+
+        try:
+            dosyalar = [
+                f for f in os.listdir(mevcut_dizin[0])
+                if os.path.isfile(os.path.join(mevcut_dizin[0], f))
+            ]
+        except:
+            return text
+
+        matches = [
+            f for f in dosyalar
+            if f.startswith(current)
+        ]
+
+    # ----------------------------
+    # Libraries Tamamlama
+    # ----------------------------
+    elif tree == "__LIBRARIES__":
+
+        kutuphane_klasoru = os.path.join(ASTRASAGE_KOK, "libraries")
+
+        if os.path.exists(kutuphane_klasoru):
+            kutuphaneler = os.listdir(kutuphane_klasoru)
+        else:
+            kutuphaneler = []
+
+        matches = [
+            k for k in kutuphaneler
+            if k.startswith(current)
+        ]
+
+    # ----------------------------
+    # Normal Komut Tamamlama
+    # ----------------------------
+    else:
+
+        matches = [
+            key
+            for key in tree.keys()
+            if key.startswith(current)
+        ]
+
+    if len(matches) == 1:
+        parts[-1] = matches[0]
+        return " ".join(parts) + " "
+
+    return text
+    
+from prompt_toolkit.document import Document
+
+@kb.add(" ")
+def _(event):
+    buffer = event.app.current_buffer
+    text = buffer.text
+    if text.startswith("as cd "):
+        yeni = complete_directory(text)
+    elif text.startswith("as ls "):
+        yeni = complete_directory(text)
+    elif text.startswith("as read "):
+        yeni = complete_file(text)
+    elif text.startswith("as info "):
+        yeni = complete_file(text)
+    elif text.startswith("as encode "):
+        yeni = complete_file(text)
+    elif text.startswith("as export "):
+        yeni = complete_library(text)
+    else:
+        yeni = complete_command(text)
+    if yeni != text:
+        from prompt_toolkit.document import Document
+        buffer.document = Document(
+            text=yeni,
+            cursor_position=len(yeni)
+        )
+    else:
+        buffer.insert_text(" ")
+
+def build_command_tree():
+    tree = {}
+    for command in ALL_COMMANDS:
+        words = command.split()
+        current = tree
+        for word in words:
+            if word not in current:
+                current[word] = {}
+            current = current[word]
+    return tree
+
+def complete_directory(text):
+    import os
+    parts = text.split()
+    if len(parts) < 3:
+        return text
+    current = parts[-1]
+    try:
+        klasorler = [
+            x for x in os.listdir(mevcut_dizin[0])
+            if os.path.isdir(os.path.join(mevcut_dizin[0], x))
+        ]
+    except:
+        return text
+    matches = [k for k in klasorler if k.startswith(current)]
+    if len(matches) == 1:
+        parts[-1] = matches[0]
+        return " ".join(parts) + " "
+    return text
+    
+def complete_file(text):
+    import os
+    parts = text.split()
+    if len(parts) < 3:
+        return text
+    current = parts[-1]
+    try:
+        dosyalar = os.listdir(mevcut_dizin[0])
+    except:
+        return text
+    matches = [d for d in dosyalar if d.startswith(current)]
+    if len(matches) == 1:
+        parts[-1] = matches[0]
+        return " ".join(parts) + " "
+    return text
+
+def complete_library(text):
+    import os
+    parts = text.split()
+    if len(parts) < 3:
+        return text
+    current = parts[-1]
+    klasor = os.path.join(ASTRASAGE_KOK, "libraries")
+    try:
+        libs = os.listdir(klasor)
+    except:
+        return text
+    matches = [l for l in libs if l.startswith(current)]
+    if len(matches) == 1:
+        parts[-1] = matches[0]
+        return " ".join(parts) + " "
+    return text
+
+def get_prompt():
+    yol = mevcut_dizin[0]
+
+    # Android yolunu kısalt
+    yol = yol.replace("/storage/emulated/0", "~")
+
+    return ANSI(f"{Renk.YESIL}{yol}/$>> {Renk.RESET}")
 
 #Ana Fonksiyon
 def main():
   loaded_libraries = load_data()
   installed_languages = load_installed_languages()
   komut_gecmisi = load_history()
+  COMMAND_TREE = build_command_tree()
+  
   
   clear(os)
   banner()
@@ -117,9 +370,9 @@ def main():
   while True:
     try:
       # Kısa yol gösterimi için
-      kisa_yol = mevcut_dizin[0].replace(os.path.expanduser("~"), "~")
-      komut = input(f"\n {Renk.YESIL}{kisa_yol}/$>> {Renk.RESET}")
+      komut = session.prompt(get_prompt())
       parcalar = komut.split()
+      
       
       if len(parcalar) == 0:
         print("Lütfen bir komut girin.")
@@ -148,13 +401,15 @@ def main():
           print("Bunu Demeyi mi Çalıştın?")
           help_menu()
           continue
-       
+          
         eylem = parcalar[1]
-
+        
+        
         if eylem == "list":
             if len(parcalar) >= 3 and parcalar[2] == "-libraries":
                 if len(loaded_libraries) == 0:
                     print("Henüz hiçbir kütüphane yüklenmedi.")
+                    continue
                 else:
                     print("Yüklü kütüphaneler:")
                     for lib in loaded_libraries:
@@ -221,6 +476,56 @@ def main():
           except Exception as hata:
             print(f"[HATA] {hata}")
         
+        elif eylem == "sys":
+            if len(parcalar) < 3:
+                print("Kullanım: as sys -neofetch")
+                continue
+
+            START_TIME = time.time()
+            uptime = int(time.time() - START_TIME)
+
+            saat = uptime // 3600
+            dakika = (uptime % 3600) // 60
+            saniye = uptime % 60
+
+            if parcalar[2] == "-neofetch":
+                print("-" * 60)
+
+                print(r"""
+    _         _
+   / \   ___ | |_ _ __ __ _
+  / _ \ / __|| __| '__/ _` |
+ / ___ \\__ \| |_| | | (_| |
+/_/   \_\___/ \__|_|  \__,_|
+
+     ____                  
+    / ___|  __ _  __ _  ___
+    \___ \ / _` |/ _` |/ _ \
+     ___) | (_| | (_| |  __/
+    |____/ \__,_|\__, |\___|
+                  |___/
+""")
+
+                print(f" OS           : AstraSage")
+                print(f" Current Path : {os.getcwd()}")
+                print(f" User         : {getpass.getuser()}")
+                print(f" Hostname     : {platform.node()}")
+                print(f" Kernel       : {platform.system()}")
+                print(f" Release      : {platform.release()}")
+                print(f" Machine      : {platform.machine()}")
+                print(f" Processor    : {platform.processor()}")
+                print(f" Python       : {platform.python_version()}")
+                print(f" Architecture : {platform.architecture()[0]}")
+                print(f" Libraries    : {len(loaded_libraries)}")
+                print(f" Theme        : {load_theme()['renk']}")
+                print(f" Banner       : {load_theme()['banner']}")
+                print(f" Uptime       : {saat:02}:{dakika:02}:{saniye:02}")
+
+                print("-" * 60)
+                print("AstraSage • By EnderAstra")
+
+            else:
+                print(f"'{parcalar[2]}' geçersiz bir sys komutudur.")
         elif eylem == "pwd":
           print(mevcut_dizin[0])
         
@@ -283,8 +588,9 @@ def main():
         elif eylem == "clear":
           print("Ekran Siliniyor...")
           show_progress_bar()
-          time.sleep(0.6)
           clear(os)
+          banner()
+          continue
         
         elif eylem == "encode":
           if len(parcalar) < 3:
@@ -296,6 +602,7 @@ def main():
         elif eylem == "help":
           time.sleep(0.3)
           help_menu()
+          continue
         
         elif eylem == "cdir":
           if len(parcalar) < 3:
@@ -344,36 +651,41 @@ def main():
             load_library(target_path, loaded_libraries, target, at_hedef)
         else:
           print(f"'{eylem}' adında bir eylem bulunamadı.")
-      
+          continue
+       
+      elif komut == r"\\boot":
+        clear(os)
+        return
       elif komut == "astra-sage-reto":
         open_advanced_panel()
-      elif komut == "$depsage":
-        print("      -DepSage Comminity-")
-        show_progress_bar(20, 0.05)
-        dep_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "DepSage", "DepSage.py")
-        if not os.path.exists(dep_yolu):
-          print("[HATA] DepSage bulunamadı. Distros/DepSage/DepSage.py mevcut olmalı.")
-        else:
-          spec = importlib.util.spec_from_file_location("DepSage", dep_yolu)
-          dep_mod = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(dep_mod)
-          dep_mod.run()
-          # DepSage'den döndükten sonra AstraSage banner'ını tekrar göster
-          clear(os)
-          banner()
-      elif komut == "$arxsage":
-        print("      -ArxSage Comminity-")
-        show_progress_bar(20, 0.05)
-        arx_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "ArxSage", "ArxSage.py")
-        if not os.path.exists(arx_yolu):
-          print("[HATA] ArxSage bulunamadı. Distros/ArxSage/ArxSage.py mevcut olmalı.")
-        else:
-          spec = importlib.util.spec_from_file_location("ArxSage", arx_yolu)
-          arx_mod = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(arx_mod)
-          arx_mod.run()
-          # ArxSage'den döndükten sonra AstraSage banner'ını tekrar göster
-          clear(os)
+      elif komut == "$depsage":  
+        print("      -DepSage Comminity-")  
+        show_progress_bar(20, 0.05)  
+        dep_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "DepSage", "DepSage.py")  
+        if not os.path.exists(dep_yolu):  
+          print("[HATA] ArxSage bulunamadı. Distros/DepSage/DepSage.py mevcut olmalı.")  
+        else:  
+          spec = importlib.util.spec_from_file_location("DepSage", dep_yolu)  
+          dep_mod = importlib.util.module_from_spec(spec)  
+          spec.loader.exec_module(dep_mod)  
+          dep_mod.dep_run()  
+          # ArxSage'den döndükten sonra AstraSage banner'ını tekrar göster  
+          clear(os)  
+          banner()  
+
+      elif komut == "$arxsage":  
+        print("      -ArxSage Comminity-")  
+        show_progress_bar(20, 0.05)  
+        arx_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "ArxSage", "ArxSage.py")  
+        if not os.path.exists(arx_yolu):  
+          print("[HATA] ArxSage bulunamadı. Distros/ArxSage/ArxSage.py mevcut olmalı.")  
+        else:  
+          spec = importlib.util.spec_from_file_location("ArxSage", arx_yolu)  
+          arx_mod = importlib.util.module_from_spec(spec)  
+          spec.loader.exec_module(arx_mod)  
+          arx_mod.run()  
+          # ArxSage'den döndükten sonra AstraSage banner'ını tekrar göster  
+          clear(os)  
           banner()
       
       else:
@@ -397,11 +709,12 @@ def main():
           time.sleep(0.2)
           print("Tüm Komutları görmek için 'as help' Komutunu çalıştıra Bilirsiniz.")
     
+    except Exception as hata:
+      print(f"Bir hata oluştu: {hata}")
     except KeyboardInterrupt:
       print("\nÇıkış yapılıyor...")
       break
-    except Exception as hata:
-      print(f"Bir hata oluştu: {hata}")
+    
 
 def show_progress_bar(toplam_adim=15, gecikme=0.05):
     for adim in range(toplam_adim + 1):
@@ -413,8 +726,10 @@ def show_progress_bar(toplam_adim=15, gecikme=0.05):
         time.sleep(gecikme)
     print()
     
+ALL_COMMANDS = []
 
 def komut(cmd, aciklama):
+    ALL_COMMANDS.append(cmd)
     print(f"  {cmd:<37} → {aciklama}")
 
 #Yardım Menüsü
@@ -456,19 +771,22 @@ def help_menu():
     komut("as-api list", "Yüklü komut dosyalarını listeler.")
     komut("as-api remove", "Komut dosyasını kaldırır.")
 
-    print(f"\n{Renk.YESIL}[ SİSTEM ]{Renk.RESET}")
+    print(f"\n{Renk.YESIL}[ BİLGİ ]{Renk.RESET}")
     komut("as server add", "Yeni sunucu ekler.")
     komut("as platform -get <Bilgi>", "Platform bilgilerini gösterir.")
     komut("as history", "Komut geçmişini listeler.")
+    print(f"\n{Renk.YESIL}[ SİSTEM ]{Renk.RESET}")
+    komut("as sys -neofetch", "Sistem Hakkında bilgi verir.")
+    
 
 #Ana Menü
 def banner():
   tema = load_theme()
   
   BANNER_STILLERI = {
-    "klasik":  "Astra Sage'e Hoşgeldin!!!",
-    "minimal": "[ AstraSage ]",
-    "bold":    "★ ASTRASAGE ★",
+    "klasik":  " Astra Sage'e Hoşgeldin!!!",
+    "minimal": " [ AstraSage ]",
+    "bold":    " ★ ASTRASAGE ★",
     "ascii":   "\n    _         _            ____\n   / \\   ___ | |_ _ __ __ / ___|  __ _  __ _  ___\n  / _ \\ / __|| __| '__/ _` \\___ \\ / _` |/ _` |/ _ \\\n / ___ \\\\__ \\| |_| | | (_| |___) | (_| | (_| |  __/\n/_/   \\_\\___/ \\__|_|  \\__,_|____/ \\__,_|\\__, |\\___|  |___/",
   }
   
@@ -478,13 +796,13 @@ def banner():
   print("")
   print("=" * 50)
   print("Sistem içi Gelişmiş Seçenekler komudu:")
-  print(f"  {Renk.YESIL}astra-sage-reto{Renk.RESET}")
+  print(f"  {Renk.YESIL}- astra-sage-reto{Renk.RESET}")
   print(f"\n{Renk.YESIL}Sistem içi Komutlar:{Renk.RESET}")
-  print("\n Ekran silmek:"f"{Renk.YESIL} as clear{Renk.RESET}")
-  print(" Kütüphane listelemek:"f"{Renk.YESIL} as list{Renk.RESET}")
-  print(" Yardım Komutu:"f"{Renk.YESIL} as help{Renk.RESET}")
-  print(" Sistem Güncelleme:"f"{Renk.YESIL} as update -Version{Renk.RESET}")
-  print("\n Github Sayfam:"f"{Renk.YESIL} https://github.com/EnderAstra7744{Renk.RESET}")
+  print("\n - Ekran silmek:"f"{Renk.YESIL} as clear{Renk.RESET}")
+  print(" - Kütüphane listelemek:"f"{Renk.YESIL} as list -libraries{Renk.RESET}")
+  print(" - Yardım Komutu:"f"{Renk.YESIL} as help{Renk.RESET}")
+  print(" - Sistem Güncelleme:"f"{Renk.YESIL} as update -Version{Renk.RESET}")
+  print("\n -- Github Sayfam:"f"{Renk.YESIL} https://github.com/EnderAstra7744{Renk.RESET}")
   print("=" * 50)
   
 def clear(os):
@@ -823,36 +1141,6 @@ def install_language(kisim, installed_languages):
         print("Artık code editor'de JSON dosyası yazabilirsiniz.")
     else:
         print(f"[HATA] '{kisim}' API bulunamadı!")
-
-
-def arxbanner():
-  print(" ArxSage'e Hoşgeldiniz")
-  print("=" * 50)
-  print(f''' ⣆⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
- ⠙⠻⢷⣦⣀⠀⠀⠀⠀⠀⠀⠀⠀
- ⠀⠀⠀⠉⠛⢷⣦⠀⠀⠀⠀⠀⠀
- ⠀⠀⣠⣤⡾⠟⠋⠀⠀⠀⠀⠀⠀
- ⣶⡿⠟⠉⠀⠀⠀⣤⣤⣤⣤⣤⣤
- ⠁⠀⠀⠀⠀⠀⠀⠛⠛⠛⠛⠛⠛''')
-  print(f"\n {Renk.YESIL} Komutlar:{Renk.RESET}")
-  print("\n    Açıklamayı Okumak için: "f"{Renk.YESIL}arx information{Renk.RESET}")
-  print("=" * 50)
-
-def arxsage_distro():
-  clear(os)
-  arxbanner()
-  
-  while True:
-    cmd = input(f"\n{Renk.YESIL} ~/AstraSage/ArxSage/$>>: {Renk.RESET}")
-    
-    pr = cmd.split()
-    if pr[0] == "arx" and pr[1] == "information":
-      print("Açıklama: ")
-      print(f"{Renk.YESIL}Bu AstraSage'in içindeki basit bir Distro dur bu Distro siber güvenlik ve etik Hackerlık için geliştirilmiştir {Renk.RESET}")
-      print(f"{Renk.KIRMIZI}NOT: Etik Hackerlık dışında kullanılması Yasal değildir{Renk.RESET}")
-
-
-
 
 if __name__ == '__main__':
   main()
