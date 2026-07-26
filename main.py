@@ -19,7 +19,6 @@ import sys
 import subprocess
 import readline
 from utils.code_editor import open_code_editor
-from utils.updater import update_system, show_update_history
 from utils.at_helper import extract_at_target, resolve_target_path
 from utils.cdir import cdir_file
 from utils.ast_format import encode_to_ast, decode_ast
@@ -38,11 +37,31 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import ANSI
+from utils.alias_manager import load_aliases, save_aliases, add_alias, remove_alias, list_aliases, resolve_alias
+from utils.android_helper import run_android_command
+from utils.system_reset import run_system_command
+
 
 ALL_COMMANDS = []
 
 COMMAND_TREE = {
     "as": {
+        "!system": {
+            "-reset": {
+                "/s": {}
+            },
+        },
+        "alias": {
+            "list": {},
+            "remove": {}
+        },
+        "android": {
+            "-notify": {},
+            "-copy": {},
+            "-paste": {},
+            "-share": "__FILES__",
+            "-vibrate": {}
+        },
         "help": {},
         "clear": {},
         "list": {
@@ -57,12 +76,14 @@ COMMAND_TREE = {
        "cd": "__DIRS__",
        "ls": "__DIRS__",
        "pwd": {},
-       "export": "__FILES__",
-       "unexport": {},
+       "export": "__LIBRARIES__",
+       "unexport": "__LIBRARIES__",
        "update": {},
        "codeeditor": {},
-        "encode": "__FILES__",
-        "platform": {
+       "encode": "__FILES__",
+       "read": "__FILES__",
+       "info": "__FILES__",
+       "platform": {
             "-get": {
                 "name": {},
                 "version": {},
@@ -81,15 +102,18 @@ COMMAND_TREE = {
     },
 
     "ai": {},
-    "ao": {},
+    "ao": {
+       "services": {
+            "-stop": {},
+            "-start": {},
+       },
+    
+    },
     "as-api": {},
-
     "$arxsage": {},
     "$depsage": {},
     "\\boot": {},
     "astra-sage-reto": {},
-    "read": "__FILES__",
-    "info": "__FILES__",
 }
 
 kb = KeyBindings()
@@ -164,6 +188,7 @@ def load_dynamic_commands():
             if os.path.exists(alt_yol):
                 dinamik_komutlar[isim] = alt_yol
     return dinamik_komutlar
+    
 def complete_command(text):
     parts = text.split()
 
@@ -357,11 +382,11 @@ def get_prompt():
 
 #Ana Fonksiyon
 def main():
+  COMMAND_TREE = build_command_tree()
+  aliases = load_aliases()
   loaded_libraries = load_data()
   installed_languages = load_installed_languages()
   komut_gecmisi = load_history()
-  COMMAND_TREE = build_command_tree()
-  
   
   clear(os)
   banner()
@@ -371,6 +396,7 @@ def main():
     try:
       # Kısa yol gösterimi için
       komut = session.prompt(get_prompt())
+      komut = resolve_alias(komut, aliases)
       parcalar = komut.split()
       
       
@@ -396,6 +422,8 @@ def main():
         run_ao_command(parcalar)
       elif parcalar[0] == "ai":
         run_ai_command(parcalar)
+      elif parcalar[0] == "as" and len(parcalar) >= 2 and parcalar[1] == "!system":
+        run_system_command(parcalar)
       elif parcalar[0] == "as":
         if len(parcalar) < 2:
           print("Bunu Demeyi mi Çalıştın?")
@@ -417,12 +445,26 @@ def main():
             else:
                 print("Kullanım: as list -libraries")
         
-        elif eylem.startswith("update"):
-          if len(parcalar) < 3:
-            print("Kullanım: as update -<versiyon>")
-            continue
-          versiyon = parcalar[2].lstrip("-")
-          update_system(versiyon)
+        elif eylem == "update":
+               if len(parcalar) < 3:
+                   print("Kullanım:")
+                   print("  as update -cheak updates     → Güncelleme var mı kontrol eder")
+                   print("  as update -nowversion        → GitHub'dan güncellemeyi uygular")
+                   print("  as update -<versiyon>        → Eski tar.gz yöntemi (uyumluluk için)")
+                   continue
+    
+               alt = parcalar[2].lstrip("-").lower()
+               if alt == "cheak" and len(parcalar) >= 4 and parcalar[3].lower() == "updates":
+               	from utils.updater import check_updates
+               	check_updates()
+               elif alt == "nowversion":
+                       from utils.updater import update_nowversion
+                       update_nowversion()
+               else:
+                    # Eski sistem (tar.gz)
+                    from utils.updater import update_system
+                    versiyon = parcalar[2].lstrip("-")
+                    update_system(versiyon)
         elif eylem == "server":
           if len(parcalar) < 3:
             print("Kullanım: as server add  |  as server delete <port>  |  as server add -<html/css/js> <dosya>")
@@ -603,7 +645,6 @@ def main():
           time.sleep(0.3)
           help_menu()
           continue
-        
         elif eylem == "cdir":
           if len(parcalar) < 3:
             print("Kullanım: as cdir <dosya ismi> at <yeni yol>")
@@ -614,7 +655,23 @@ def main():
             continue
           dosya_ismi = temiz_parcalar[2]
           cdir_file(dosya_ismi, at_hedef)
-        
+        elif eylem == "android":
+        	run_android_command(parcalar)
+        elif eylem == "alias":
+          if len(parcalar) < 3:
+            print('Kullanım: as alias <isim>="<komut>"  |  as alias list  |  as alias remove <isim>')
+            continue
+          if parcalar[2] == "list":
+            list_aliases(aliases)
+          elif parcalar[2] == "remove":
+            if len(parcalar) < 4:
+              print("Kullanım: as alias remove <isim>")
+              continue
+            remove_alias(parcalar[3], aliases)
+          else:
+            ham_metin = komut.split(" ", 2)[2]
+            add_alias(ham_metin, aliases)
+
         elif eylem == "can":
           run_can_command(parcalar)
         elif eylem == "history":
@@ -672,7 +729,20 @@ def main():
           # ArxSage'den döndükten sonra AstraSage banner'ını tekrar göster  
           clear(os)  
           banner()  
-
+      elif komut == "$devsage":
+        print("      -DevSage Comminity-")  
+        show_progress_bar(20, 0.05)  
+        dev_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "DevSage", "DevSage.py")  
+        if not os.path.exists(dev_yolu):  
+          print("[HATA] DevSage bulunamadı. Distros/DevSage/DevSage.py mevcut olmalı.")  
+        else:  
+          spec = importlib.util.spec_from_file_location("DevSage", dev_yolu)  
+          dev_mod = importlib.util.module_from_spec(spec)  
+          spec.loader.exec_module(dev_mod)  
+          dev_mod.run()  
+          # DevSage'den döndükten sonra AstraSage banner'ını tekrar göster  
+          clear(os)  
+          banner()
       elif komut == "$arxsage":  
         print("      -ArxSage Comminity-")  
         show_progress_bar(20, 0.05)  
@@ -741,6 +811,11 @@ def help_menu():
     komut("as unexport <Kütüphane>", "Kütüphaneyi kaldırır.")
     komut("as export -gt <URL>", "GitHub'dan kütüphane indirir.")
     komut("asinstall <Script>", "Kodlama dilinin API'sini indirir.")
+    
+    print(f"\n{Renk.YESIL}[ GÜNCELLEME ]{Renk.RESET}")
+    komut("  as update -cheak updates","Güncelleme var mı kontrol eder")
+    komut("  as update -nowversion","GitHub'dan güncellemeyi uygular")
+    komut("  as update -<versiyon>","Eski tar.gz yöntemi (uyumluluk için)")
 
     print(f"\n{Renk.YESIL}[ GELİŞTİRME ]{Renk.RESET}")
     komut("as codeeditor", "Kod editörünü açar.")
@@ -754,7 +829,8 @@ def help_menu():
     komut("as pwd", "Geçerli çalışma dizinini gösterir.")
     komut("as cdir <Dosyaİsmi> at <HedefYol>", "Dosyayı belirtilen konuma taşır.")
     komut("as can <Create/Delete> -Null/İsim.txt", "Dosya oluşturur veya siler.")
-    komut("as <info/read> -<DosyaYolu>", "Dosya bilgilerini veya içeriğini gösterir.")
+    komut("as read -<DosyaYolu>", "içeriğini gösterir.")
+    komut("as info -<DosyaYolu>", "Dosya bilgilerini gösterir.")
 
     print(f"\n{Renk.YESIL}[ PAKET YÖNETİCİSİ ]{Renk.RESET}")
     komut("ao <Paket> -install", "Paketi yükler.")
@@ -777,6 +853,18 @@ def help_menu():
     komut("as history", "Komut geçmişini listeler.")
     print(f"\n{Renk.YESIL}[ SİSTEM ]{Renk.RESET}")
     komut("as sys -neofetch", "Sistem Hakkında bilgi verir.")
+    
+    print(f"\n{Renk.YESIL}[ ALIAS ]{Renk.RESET}")
+    komut('as alias <isim>="<komut>"', "Yeni kısayol tanımlar.")
+    komut("as alias list", "Tanımlı kısayolları listeler.")
+    komut("as alias remove <isim>", "Kısayolu siler.")
+
+    print(f"\n{Renk.YESIL}[ ANDROID ]{Renk.RESET}")
+    komut("as android -notify <mesaj>", "Bildirim gönderir.")
+    komut("as android -copy <metin>", "Panoya kopyalar.")
+    komut("as android -paste", "Pano içeriğini gösterir.")
+    komut("as android -share <dosya>", "Dosyayı paylaşım menüsüyle paylaşır.")
+    komut("as android -vibrate <ms>", "Cihazı titreştirir.")
     
 
 #Ana Menü
