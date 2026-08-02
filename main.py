@@ -10,6 +10,7 @@ import socket
 import zipfile
 import importlib.util
 import json
+import re
 import requests
 import shutil
 import webbrowser
@@ -32,17 +33,57 @@ from utils.astra_security import tara
 from Distros.ArxSage.ArxSage import run
 from Distros.DepSage.DepSage import dep_run
 import importlib.util as _ilu
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit import prompt
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.document import Document
 from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
 from utils.alias_manager import load_aliases, save_aliases, add_alias, remove_alias, list_aliases, resolve_alias
 from utils.android_helper import run_android_command
 from utils.system_reset import run_system_command
+from utils.distro_manager import distro_manager
 
-
+DISTRO = "AstraSage"
+distro_manager.load(sys.modules[__name__])
+distro = distro_manager.distro
 ALL_COMMANDS = []
+START_TIME = time.time()
+
+# ============================================================
+# AstraSage Completion Menü Stili
+# ============================================================
+ASTRASAGE_STYLE = Style.from_dict({
+    # Completion menüsü
+    "completion-menu":
+        "bg:#000000 #00FF00",
+
+    # Normal komutlar
+    "completion-menu.completion":
+        "bg:#000000 #00FF00",
+
+    # Seçili komut
+    "completion-menu.completion.current":
+        "bg:#00FF00 #000000 bold",
+
+    # Meta alanı
+    "completion-menu.meta":
+        "bg:#000000 #00FF00",
+
+    # Seçili meta alanı
+    "completion-menu.meta.current":
+        "bg:#00FF00 #000000 bold",
+
+    # Scrollbar
+    "scrollbar.background":
+        "bg:#000000",
+
+    "scrollbar.button":
+        "bg:#00FF00",
+})
 
 COMMAND_TREE = {
     "as": {
@@ -83,6 +124,10 @@ COMMAND_TREE = {
        "encode": "__FILES__",
        "read": "__FILES__",
        "info": "__FILES__",
+       "asinstall": {
+            "python": {},
+            "json": {},
+       },
        "platform": {
             "-get": {
                 "name": {},
@@ -112,12 +157,122 @@ COMMAND_TREE = {
     "as-api": {},
     "$arxsage": {},
     "$depsage": {},
-    "\\boot": {},
+    "$devsage": {},
+    "$linuxsage": {},
+    "\\launcher": {},
     "astra-sage-reto": {},
 }
+def _gorunur_uzunluk(s):
+       return len(re.sub(r'\x1b\[[0-9;]*m', '', s))
+class AstraSageCompleter(Completer):
 
+    def __init__(self, command_tree):
+        self.command_tree = command_tree
+
+    def _flatten_tree(self, tree, prefix=""):
+        commands = []
+
+        if not isinstance(tree, dict):
+            return commands
+
+        for command, children in tree.items():
+
+            command = str(command).strip()
+
+            if not command:
+                continue
+
+            current = command
+
+            if prefix:
+                current = f"{prefix} {command}"
+
+            commands.append(current)
+
+            if isinstance(children, dict) and children:
+                commands.extend(
+                    self._flatten_tree(
+                        children,
+                        current
+                    )
+                )
+
+        return commands
+
+    def get_completions(self, document, complete_event):
+
+        text = document.text_before_cursor
+        current = text.strip()
+
+        commands = self._flatten_tree(
+            self.command_tree
+        )
+
+        commands = sorted(set(commands))
+
+        for command in commands:
+
+            if command.lower().startswith(
+                current.lower()
+            ):
+
+                yield Completion(
+                command,
+                start_position=-len(current),
+                display=command,
+                )
 kb = KeyBindings()
-session = PromptSession(key_bindings=kb)
+# ============================================================
+# AstraSage OC (Old Command) sistemi
+# ============================================================
+
+old_commands = []
+oc_index = -1
+
+
+def add_old_command(command):
+    """Çalıştırılan gerçek komutu eski komut listesine ekler."""
+    command = command.strip()
+
+    if not command:
+        return
+
+    # OC komutlarının kendisini geçmişe ekleme
+    if command.lower() == "oc":
+        return
+
+    old_commands.append(command)
+
+
+def get_old_command():
+    """
+    En son eski komutu getirir.
+    Sonraki çağrılarda geriye doğru gider.
+    """
+    global oc_index
+
+    if not old_commands:
+        return None
+
+    if oc_index == -1:
+        oc_index = len(old_commands) - 1
+    elif oc_index > 0:
+        oc_index -= 1
+
+    return old_commands[oc_index]
+
+
+def reset_oc():
+    """OC gezinme konumunu sıfırlar."""
+    global oc_index
+    oc_index = -1
+session = PromptSession(
+    key_bindings=kb,
+    completer=AstraSageCompleter(COMMAND_TREE),
+    complete_while_typing=True,
+    style=ASTRASAGE_STYLE,
+    complete_in_thread=True
+)
 
 did_you_mean = False
 mevcut_dizin = [os.getcwd()]
@@ -152,29 +307,159 @@ def save_history(history):
             json.dump({"history": history}, f, indent=2, ensure_ascii=False)
     except Exception:
         pass
+# ============================================================
+# ASTRA SAGE ANSI RENK SİSTEMİ
+# ============================================================
 
-#Terminal renk kodları (ANSI)
 def _tema_renkleri():
+
     TEMAS = {
-        "yesil":   {"YESIL": "\033[92m", "KOYU_YESIL": "\033[32m", "KIRMIZI": "\033[91m", "SARI": "\033[93m"},
-        "mavi":    {"YESIL": "\033[94m", "KOYU_YESIL": "\033[34m", "KIRMIZI": "\033[91m", "SARI": "\033[93m"},
-        "kirmizi": {"YESIL": "\033[91m", "KOYU_YESIL": "\033[31m", "KIRMIZI": "\033[93m", "SARI": "\033[92m"},
-        "sari":    {"YESIL": "\033[93m", "KOYU_YESIL": "\033[33m", "KIRMIZI": "\033[91m", "SARI": "\033[92m"},
-        "mor":     {"YESIL": "\033[95m", "KOYU_YESIL": "\033[35m", "KIRMIZI": "\033[91m", "SARI": "\033[93m"},
-        "turkuaz": {"YESIL": "\033[96m", "KOYU_YESIL": "\033[36m", "KIRMIZI": "\033[91m", "SARI": "\033[93m"},
+
+        "yesil": {
+            "YESIL": "\033[92m",
+            "KOYU_YESIL": "\033[32m",
+            "KIRMIZI": "\033[91m",
+            "SARI": "\033[93m",
+
+            "BG_TEMA": "\033[102m",
+            "BG_KOYU_TEMA": "\033[42m",
+        },
+
+        "mavi": {
+            "YESIL": "\033[94m",
+            "KOYU_YESIL": "\033[34m",
+            "KIRMIZI": "\033[91m",
+            "SARI": "\033[93m",
+
+            "BG_TEMA": "\033[104m",
+            "BG_KOYU_TEMA": "\033[44m",
+        },
+
+        "kirmizi": {
+            "YESIL": "\033[91m",
+            "KOYU_YESIL": "\033[31m",
+            "KIRMIZI": "\033[93m",
+            "SARI": "\033[92m",
+
+            "BG_TEMA": "\033[101m",
+            "BG_KOYU_TEMA": "\033[41m",
+        },
+
+        "sari": {
+            "YESIL": "\033[93m",
+            "KOYU_YESIL": "\033[33m",
+            "KIRMIZI": "\033[91m",
+            "SARI": "\033[92m",
+
+            "BG_TEMA": "\033[103m",
+            "BG_KOYU_TEMA": "\033[43m",
+        },
+
+        "mor": {
+            "YESIL": "\033[95m",
+            "KOYU_YESIL": "\033[35m",
+            "KIRMIZI": "\033[91m",
+            "SARI": "\033[93m",
+
+            "BG_TEMA": "\033[105m",
+            "BG_KOYU_TEMA": "\033[45m",
+        },
+
+        "turkuaz": {
+            "YESIL": "\033[96m",
+            "KOYU_YESIL": "\033[36m",
+            "KIRMIZI": "\033[91m",
+            "SARI": "\033[93m",
+
+            "BG_TEMA": "\033[106m",
+            "BG_KOYU_TEMA": "\033[46m",
+        },
     }
+
     tema = load_theme()
-    return TEMAS.get(tema["renk"], TEMAS["yesil"])
+
+    return TEMAS.get(
+        tema.get("renk", "yesil"),
+        TEMAS["yesil"]
+    )
+
 
 class Renk:
-    _r = _tema_renkleri()
-    YESIL = _r["YESIL"]
-    KOYU_YESIL = _r["KOYU_YESIL"]
-    KIRMIZI = _r["KIRMIZI"]
-    SARI = _r["SARI"]
-    RESET = "\033[0m"
-    BOLD = "\033[1m"
 
+    # ========================================================
+    # TEMA
+    # ========================================================
+
+    _TEMA = _tema_renkleri()
+
+    YESIL = _TEMA["YESIL"]
+    KOYU_YESIL = _TEMA["KOYU_YESIL"]
+    KIRMIZI = _TEMA["KIRMIZI"]
+    SARI = _TEMA["SARI"]
+
+    BG_TEMA = _TEMA["BG_TEMA"]
+    BG_KOYU_TEMA = _TEMA["BG_KOYU_TEMA"]
+
+    # ========================================================
+    # TEMEL RENKLER
+    # ========================================================
+
+    SIYAH = "\033[30m"
+    MAVI = "\033[34m"
+    MOR = "\033[35m"
+    TURKUAZ = "\033[36m"
+    BEYAZ = "\033[37m"
+
+    # ========================================================
+    # PARLAK RENKLER
+    # ========================================================
+
+    ACIK_SIYAH = "\033[90m"
+    ACIK_KIRMIZI = "\033[91m"
+    ACIK_YESIL = "\033[92m"
+    ACIK_SARI = "\033[93m"
+    ACIK_MAVI = "\033[94m"
+    ACIK_MOR = "\033[95m"
+    ACIK_TURKUAZ = "\033[96m"
+    ACIK_BEYAZ = "\033[97m"
+
+    # ========================================================
+    # BİÇİMLENDİRME
+    # ========================================================
+
+    RESET = "\033[0m"
+    KALIN = "\033[1m"
+    SOLUK = "\033[2m"
+    ITALIK = "\033[3m"
+    ALT_CIZGI = "\033[4m"
+    TERS = "\033[7m"
+
+    # ========================================================
+    # NORMAL ARKA PLANLAR
+    # ========================================================
+
+    BG_SIYAH = "\033[38;5;236m"
+    BG_KIRMIZI = "\033[41m"
+    BG_YESIL = "\033[42m"
+    BG_SARI = "\033[43m"
+    BG_MAVI = "\033[44m"
+    BG_MOR = "\033[45m"
+    BG_TURKUAZ = "\033[46m"
+    BG_BEYAZ = "\033[47m"
+
+    # ========================================================
+    # PARLAK ARKA PLANLAR
+    # ========================================================
+
+    BG_ACIK_SIYAH = "\033[100m"
+    BG_ACIK_KIRMIZI = "\033[101m"
+    BG_ACIK_YESIL = "\033[102m"
+    BG_ACIK_SARI = "\033[103m"
+    BG_ACIK_MAVI = "\033[104m"
+    BG_ACIK_MOR = "\033[105m"
+    BG_ACIK_TURKUAZ = "\033[106m"
+    BG_ACIK_BEYAZ = "\033[107m"
+    
 def load_dynamic_commands():
     """commands/ ve packages/ içindeki tüm komutları yükler."""
     dinamik_komutlar = {}
@@ -286,6 +571,18 @@ from prompt_toolkit.document import Document
 def _(event):
     buffer = event.app.current_buffer
     text = buffer.text
+    before = text
+    after = ""
+    if text.lower() == "oc":
+    	old_command = get_old_command()
+    	if old_command is None:
+    	   buffer.text = "oc "
+    	   buffer.cursor_position = len(buffer.text)
+    	   return
+    	buffer.text = old_command
+    	buffer.cursor_position = len(old_command)
+    	return
+    
     if text.startswith("as cd "):
         yeni = complete_directory(text)
     elif text.startswith("as ls "):
@@ -398,6 +695,8 @@ def main():
       komut = session.prompt(get_prompt())
       komut = resolve_alias(komut, aliases)
       parcalar = komut.split()
+      add_old_command(komut)
+      reset_oc()
       
       
       if len(parcalar) == 0:
@@ -517,13 +816,34 @@ def main():
                   print(f"    {item}")
           except Exception as hata:
             print(f"[HATA] {hata}")
-        
+        elif eylem == "ls":
+            hedef_klasor = parcalar[2] if len(parcalar) >= 3 else mevcut_dizin[0]
+
+            try:
+                icerik = os.listdir(hedef_klasor)
+
+                if len(icerik) == 0:
+                    print("(boş klasör)")
+                else:
+                    for item in sorted(icerik):
+                        tam_yol = os.path.join(hedef_klasor, item)
+
+                        if os.path.isdir(tam_yol):
+                            print(
+                                f"{Renk.YESIL}[K] "
+                                f"{item}/{Renk.RESET}"
+                            )
+                        else:
+                            print(f"    {item}")
+
+            except Exception as hata:
+                print(f"[HATA] {hata}")
+
         elif eylem == "sys":
             if len(parcalar) < 3:
                 print("Kullanım: as sys -neofetch")
                 continue
 
-            START_TIME = time.time()
             uptime = int(time.time() - START_TIME)
 
             saat = uptime // 3600
@@ -532,45 +852,90 @@ def main():
 
             if parcalar[2] == "-neofetch":
                 print("-" * 60)
-
-                print(r"""
-    _         _
-   / \   ___ | |_ _ __ __ _
-  / _ \ / __|| __| '__/ _` |
- / ___ \\__ \| |_| | | (_| |
-/_/   \_\___/ \__|_|  \__,_|
-
-     ____                  
-    / ___|  __ _  __ _  ___
-    \___ \ / _` |/ _` |/ _ \
-     ___) | (_| | (_| |  __/
-    |____/ \__,_|\__, |\___|
-                  |___/
-""")
-
-                print(f" OS           : AstraSage")
-                print(f" Current Path : {os.getcwd()}")
-                print(f" User         : {getpass.getuser()}")
-                print(f" Hostname     : {platform.node()}")
-                print(f" Kernel       : {platform.system()}")
-                print(f" Release      : {platform.release()}")
-                print(f" Machine      : {platform.machine()}")
-                print(f" Processor    : {platform.processor()}")
-                print(f" Python       : {platform.python_version()}")
-                print(f" Architecture : {platform.architecture()[0]}")
-                print(f" Libraries    : {len(loaded_libraries)}")
-                print(f" Theme        : {load_theme()['renk']}")
-                print(f" Banner       : {load_theme()['banner']}")
-                print(f" Uptime       : {saat:02}:{dakika:02}:{saniye:02}")
-
+                print(r'''
+                                                        
+                                                        
+                                                        
+                                                        
+                                                        
+[38;5;190m          g@@@g@gggg[38;5;154m_~mg@@@@@@@@@@@@@@@@8@@@@@g         
+          [38;5;190m[@@@@@@@P[38;5;154m_g@@@@@@@@@@@@@@@@@@@"_@@@@|         
+          [38;5;190m[@@@g_[38;5;154m,g@@@@@@@@@@@@@@@@@@@@@B>??"W@          
+          [38;5;190m^0[38;5;154m__@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@[38;5;70m,         
+          [38;5;154m_@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|[38;5;70mj         
+          [38;5;154m@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ [38;5;70mg         
+          [38;5;154m@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@[38;5;70m[g         
+          [38;5;154m@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|[38;5;70m@$         
+          [38;5;154m@@@@@@@@     [@@@@@@@@@@@@@@@@@@@@ [38;5;70m@]         
+          [38;5;154m@@@@@@@       B@@@@@@@@@@@@@@@@Z2@[38;5;70m[@]         
+          [38;5;154m@@@@@@/   @    @@@@"      "@@@C[38;5;112m%@[38;5;154m^[38;5;70m@@Z         
+          [38;5;154m@@@@@F   J@g   '@@    y_   5P [38;5;112mWWg'[38;5;70m@@g         
+          [38;5;154m@@@@D    """    T@_      ""[38;5;112mw@@@@@[38;5;70m|@@g         
+          [38;5;154m@@@@    _____    7BB.[38;5;112m__,   Z@@@@g[38;5;70m@@@g         
+          [38;5;154m@@@    @@@@@@@       [38;5;112m''"   g@@@@'[38;5;70m@@@g         
+          [38;5;154m@@1___{@@@@@@@\_   [38;5;112ma______@@@@@@[38;5;70m;@@@g         
+          [38;5;154m@@@@@@@@@@@@@@fB^.L[38;5;112mB@BD==""""[38;5;70m_~g@@@@g         
+          [38;5;154mBB==""""[38;5;70m-~ommmBBBBBBBBBBBBBBBBBBBBBB?         
+                                                        
+                                                        
+                                                        
+[0m
+               ''')
+                print("")
+                print(f"{Renk.YESIL} OS           :{Renk.RESET} {distro.name}",)
+                print(f"{Renk.YESIL} Current Path :{Renk.RESET} {os.getcwd()}",)
+                print(f"{Renk.YESIL} User         :{Renk.RESET} {getpass.getuser()}",)
+                print(f"{Renk.YESIL} Hostname     :{Renk.RESET} {platform.node()}",)
+                print(f"{Renk.YESIL} Kernel       :{Renk.RESET} {platform.system()}",)
+                print(f"{Renk.YESIL} Release      :{Renk.RESET} {platform.release()}",)
+                print(f"{Renk.YESIL} Machine      :{Renk.RESET} {platform.machine()}",)
+                print(f"{Renk.YESIL} Processor    :{Renk.RESET} {platform.processor()}",)
+                print(f"{Renk.YESIL} Python       :{Renk.RESET} {platform.python_version()}",)
+                print(f"{Renk.YESIL} Architecture :{Renk.RESET} {platform.architecture()[0]}",)
+                print(f"{Renk.YESIL} Libraries    :{Renk.RESET} {len(loaded_libraries)}",)
+                print(f"{Renk.YESIL} Theme        :{Renk.RESET} {load_theme()['renk']}",)
+                print(f"{Renk.YESIL} Banner       :{Renk.RESET} {load_theme()['banner']}",)
+                print(f"{Renk.YESIL} Uptime       :{Renk.RESET} {saat:02}:{dakika:02}:{saniye:02}",)
+                # ==================================================
+                # TERMINAL RENK PALETİ
+                # ==================================================
+                normal_renkler = [
+                    Renk.BG_SIYAH, 
+                    Renk.BG_KIRMIZI, 
+                    Renk.BG_YESIL, 
+                    Renk.BG_SARI,
+                    Renk.BG_MAVI, 
+                    Renk.BG_MOR, 
+                    Renk.BG_TURKUAZ, 
+                    Renk.BG_BEYAZ,
+                    ]
+                parlak_renkler = [
+                    Renk.BG_ACIK_SIYAH, 
+                    Renk.BG_ACIK_KIRMIZI, 
+                    Renk.BG_ACIK_YESIL, 
+                    Renk.BG_ACIK_SARI,
+                    Renk.BG_ACIK_MAVI, 
+                    Renk.BG_ACIK_MOR, 
+                    Renk.BG_ACIK_TURKUAZ, 
+                    Renk.BG_ACIK_BEYAZ,
+                    ]
+                print()
+                for renk in normal_renkler:
+                    	print(f"{renk}   {Renk.RESET}", end="")
+                print()
+                for renk in parlak_renkler:
+                    	print(f"{renk}   {Renk.RESET}", end="")
+                print("\n")
                 print("-" * 60)
-                print("AstraSage • By EnderAstra")
-
+                print(f"{Renk.YESIL}AstraSage{Renk.RESET} • By: EnderAstra")
             else:
-                print(f"'{parcalar[2]}' geçersiz bir sys komutudur.")
+                print(
+                    f"'{parcalar[2]}' "
+                    f"geçersiz bir sys komutudur."
+                )
+
         elif eylem == "pwd":
-          print(mevcut_dizin[0])
-        
+            print(mevcut_dizin[0])
         elif eylem == "codeeditor":
           open_code_editor(installed_languages)
         elif eylem == "read":
@@ -710,7 +1075,7 @@ def main():
           print(f"'{eylem}' adında bir eylem bulunamadı.")
           continue
        
-      elif komut == r"\\boot":
+      elif komut == r"\\launcher":
         clear(os)
         return
       elif komut == "astra-sage-reto":
@@ -729,6 +1094,30 @@ def main():
           # ArxSage'den döndükten sonra AstraSage banner'ını tekrar göster  
           clear(os)  
           banner()  
+      elif komut == "$linuxsage":
+        print("      -LinuxSage Comminity-")
+        show_progress_bar(20, 0.05)
+        linux_yolu = os.path.join(ASTRASAGE_KOK, "Distros", "LinuxSage", "LinuxSage.py")
+
+        if not os.path.exists(linux_yolu):
+            print("[HATA] LinuxSage bulunamadı. Distros/LinuxSage/LinuxSage.py mevcut olmalı.")
+        else:
+            eski_dizin = os.getcwd()
+            try:
+                linux_dizin = os.path.dirname(linux_yolu)
+                os.chdir(linux_dizin)
+                spec = importlib.util.spec_from_file_location("LinuxSage", linux_yolu)
+                linux_mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(linux_mod)
+                linux_mod.run()
+            except Exception as e:
+            	print(f"[HATA] LinuxSage çalıştırılırken hata oluştu: {e}")
+            finally:
+            	# LinuxSage'den çıkınca AstraSage'in dizinine geri dön
+                os.chdir(eski_dizin)
+            # LinuxSage'den döndükten sonra AstraSage banner'ını tekrar göster
+            clear(os)
+            banner()
       elif komut == "$devsage":
         print("      -DevSage Comminity-")  
         show_progress_bar(20, 0.05)  
@@ -813,9 +1202,9 @@ def help_menu():
     komut("asinstall <Script>", "Kodlama dilinin API'sini indirir.")
     
     print(f"\n{Renk.YESIL}[ GÜNCELLEME ]{Renk.RESET}")
-    komut("  as update -cheak updates","Güncelleme var mı kontrol eder")
-    komut("  as update -nowversion","GitHub'dan güncellemeyi uygular")
-    komut("  as update -<versiyon>","Eski tar.gz yöntemi (uyumluluk için)")
+    komut("as update -cheak updates","Güncelleme var mı kontrol eder")
+    komut("as update -nowversion","GitHub'dan güncellemeyi uygular")
+    komut("as update -<versiyon>","Eski tar.gz yöntemi (uyumluluk için)")
 
     print(f"\n{Renk.YESIL}[ GELİŞTİRME ]{Renk.RESET}")
     komut("as codeeditor", "Kod editörünü açar.")

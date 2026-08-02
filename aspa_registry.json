@@ -1,0 +1,16 @@
+{
+  "HelloWorld.aspa": {
+    "yol": "/storage/emulated/0/Documents/Python_projects/AstraSage/Apps/HelloWorld.aspa.aspa",
+    "version": "1.0.0",
+    "entry": "main.py",
+    "author": "EnderAstra",
+    "description": "ASPA test uygulaması"
+  },
+  "fvirus": {
+    "yol": "/storage/emulated/0/Documents/Python_projects/AstraSage/Apps/fvirus.aspa",
+    "version": "1.0.0",
+    "entry": "main.py",
+    "author": "bilinmiyor",
+    "description": "AstraSage prompt giriş sistemini test eden uygulama."
+  }
+}

@@ -1,12 +1,124 @@
-import time
+# ============================================================
+# ASTRASAGE BAŞLANGIÇ KONTROL SİSTEMİ
+# ============================================================
+
 import sys
+import importlib.util
+
+
+# ------------------------------------------------------------
+# Python kontrolü
+# ------------------------------------------------------------
+
+MIN_PYTHON = (3, 9)
+
+
+def python_kontrol():
+    mevcut = sys.version_info[:2]
+
+    if mevcut < MIN_PYTHON:
+        print()
+        print("=" * 60)
+        print("ASTRASAGE BAŞLATILAMADI")
+        print("=" * 60)
+        print()
+        print(
+            f"Gerekli Python sürümü : "
+            f"{MIN_PYTHON[0]}.{MIN_PYTHON[1]}+"
+        )
+
+        print(
+            f"Mevcut Python sürümü  : "
+            f"{mevcut[0]}.{mevcut[1]}"
+        )
+
+        print()
+        print("Lütfen Python'u güncelleyin.")
+        print("=" * 60)
+
+        sys.exit(1)
+
+
+# ------------------------------------------------------------
+# Gerekli Python/PIP paketleri
+# ------------------------------------------------------------
+
+GEREKLI_PAKETLER = {
+    "requests": "requests",
+    "prompt_toolkit": "prompt-toolkit",
+}
+
+
+def paket_kontrol():
+    eksik_paketler = []
+
+    for modul, pip_adi in GEREKLI_PAKETLER.items():
+
+        if importlib.util.find_spec(modul) is None:
+            eksik_paketler.append(pip_adi)
+
+    if eksik_paketler:
+
+        print()
+        print("=" * 60)
+        print("ASTRASAGE BAŞLATILAMADI")
+        print("=" * 60)
+        print()
+
+        print("Eksik Python paketleri bulundu:")
+        print()
+
+        for paket in eksik_paketler:
+            print(f"  [X] {paket}")
+
+        print()
+        print("Eksik paketleri kurmak için:")
+        print()
+
+        print(
+            "pip install "
+            + " ".join(eksik_paketler)
+        )
+
+        print()
+        print("Android / Termux kullanıyorsanız:")
+        print()
+
+        print(
+            "python -m pip install "
+            + " ".join(eksik_paketler)
+        )
+
+        print()
+        print("=" * 60)
+
+        sys.exit(1)
+
+
+# ------------------------------------------------------------
+# AstraSage başlatma kontrolleri
+# ------------------------------------------------------------
+
+def baslangic_kontrolu():
+
+    # Python kontrolü
+    python_kontrol()
+
+    # Paket kontrolü
+    paket_kontrol()
+
+
+# Kontrolleri çalıştır
+baslangic_kontrolu()
+
+
+import time
 import os
 import glob
 import platform
 import socket
 import hashlib
 import main
-import importlib.util
 import importlib
 
 ASTRASAGE_KOK = os.getcwd()  # AstraSage'in gerçek kök dizini, hiç değişmez
@@ -168,56 +280,10 @@ def boot_sequence():
         show_progress_bar(20, 0.2)
 
         
-        print("\n\033[92mAstraSage System is ready.\033[0m")
+        print("\n\033[92mAstraSage Boot Complated\033[0m")
         time.sleep(1)
-
-        print("\n" + "="*70)
-        print("\033[95mBoot tamamlandı. Komutları girebilirsiniz.\033[0m")
         while True:
-            try:
-                cmd = input("\nboot${Booting}@#:>> ").strip()
-                if cmd == "join -kotlin":
-                  print("Joinning Kotlin")
-                  time.sleep(1)
-                  show_progress_bar(20, 0.2)
-                  os.system("python astra_kotlin.py")
-                  break
-                if cmd == "login -astrasage":
-                    as_yolu = os.path.join(ASTRASAGE_KOK, "main.py")
-                    if not os.path.exists(as_yolu):
-                    	print("[HATA] ArxSage bulunamadı. main.py mevcut olmalı.")
-                    else:
-                    	os.execv(sys.executable, [sys.executable, as_yolu])
-
-                elif cmd.startswith("distro -login "):
-                    distro = cmd.replace("distro -login ", "").strip()
-                    if distro.lower() == "arxsage":
-                        print("\033[92mArxSage'e geçiş yapılıyor...\033[0m")
-                        time.sleep(0.8)
-                        os.system("python Distros/ArxSage/ArxSage.py")
-                        break
-                    elif distro.lower() == "depsage":
-                        print("\033[92mDepSage'e geçiş yapılıyor...\033[0m")
-                        time.sleep(0.8)
-                        os.system("python Distros/DepSage/DepSage.py")
-                        break
-                    else:
-                        print("\033[93mGeçersiz distro! Arxsage veya DepSage yazın.\033[0m")
-                        
-                elif cmd in ["shutdown /r /o /t /0", "shutdown", "poweroff"]:
-                    print("\033[91mAstraSage kapatılıyor...\033[0m")
-                    time.sleep(1)
-                    sys.exit(0)
-                    
-                else:
-                    if cmd:  # Boş değilse
-                        print("\033[93mBilinmeyen komut. Kullanılabilir komutlar: login -astrasage | distro -login <Arxsage/DepSage> | shutdown /r /o /t /0  |  join -kotlin \033[0m")
-                        
-            except KeyboardInterrupt:
-                print("\n\033[91mKapatılıyor...\033[0m")
-                sys.exit(0)
-            except Exception as e:
-                print(f"\033[91mHata: {e}\033[0m")  
+        	break
     except KeyboardInterrupt:
         print("\n\033[93mBoot interrupted.\033[0m")
     finally:

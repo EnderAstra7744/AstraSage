@@ -1,0 +1,10 @@
+{
+    "name": "FVirus",
+    "version": "1.0.0",
+    "type": "application",
+    "entry": "main.py",
+    "description": "AstraSage prompt giriş sistemini test eden uygulama.",
+    "permissions": [
+        "prompt.submit"
+    ]
+}
