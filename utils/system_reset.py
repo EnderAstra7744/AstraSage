@@ -26,6 +26,7 @@ SIFIRLANACAK_DOSYALAR = {
     "installed_languages.json": {"languages": []},
     os.path.join(ASTRASAGE_KOK, "assets", "history.json"): {"history": []},
     "aliases.json": {"aliases": {}},
+    os.path.join(ASTRASAGE_KOK, "assets", "astrasage_theme.json"): {"banner": "klasik", "renk": "yesil"},
 }
 
 KORUNAN_DOSYALAR = [

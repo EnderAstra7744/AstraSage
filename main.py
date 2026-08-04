@@ -46,6 +46,7 @@ from utils.alias_manager import load_aliases, save_aliases, add_alias, remove_al
 from utils.android_helper import run_android_command
 from utils.system_reset import run_system_command
 from utils.distro_manager import distro_manager
+from utils.neofetch import show_neofetch
 
 DISTRO = "AstraSage"
 distro_manager.load(sys.modules[__name__])
@@ -851,83 +852,7 @@ def main():
             saniye = uptime % 60
 
             if parcalar[2] == "-neofetch":
-                print("-" * 60)
-                print(r'''
-                                                        
-                                                        
-                                                        
-                                                        
-                                                        
-[38;5;190m          g@@@g@gggg[38;5;154m_~mg@@@@@@@@@@@@@@@@8@@@@@g         
-          [38;5;190m[@@@@@@@P[38;5;154m_g@@@@@@@@@@@@@@@@@@@"_@@@@|         
-          [38;5;190m[@@@g_[38;5;154m,g@@@@@@@@@@@@@@@@@@@@@B>??"W@          
-          [38;5;190m^0[38;5;154m__@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@[38;5;70m,         
-          [38;5;154m_@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|[38;5;70mj         
-          [38;5;154m@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ [38;5;70mg         
-          [38;5;154m@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@[38;5;70m[g         
-          [38;5;154m@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@|[38;5;70m@$         
-          [38;5;154m@@@@@@@@     [@@@@@@@@@@@@@@@@@@@@ [38;5;70m@]         
-          [38;5;154m@@@@@@@       B@@@@@@@@@@@@@@@@Z2@[38;5;70m[@]         
-          [38;5;154m@@@@@@/   @    @@@@"      "@@@C[38;5;112m%@[38;5;154m^[38;5;70m@@Z         
-          [38;5;154m@@@@@F   J@g   '@@    y_   5P [38;5;112mWWg'[38;5;70m@@g         
-          [38;5;154m@@@@D    """    T@_      ""[38;5;112mw@@@@@[38;5;70m|@@g         
-          [38;5;154m@@@@    _____    7BB.[38;5;112m__,   Z@@@@g[38;5;70m@@@g         
-          [38;5;154m@@@    @@@@@@@       [38;5;112m''"   g@@@@'[38;5;70m@@@g         
-          [38;5;154m@@1___{@@@@@@@\_   [38;5;112ma______@@@@@@[38;5;70m;@@@g         
-          [38;5;154m@@@@@@@@@@@@@@fB^.L[38;5;112mB@BD==""""[38;5;70m_~g@@@@g         
-          [38;5;154mBB==""""[38;5;70m-~ommmBBBBBBBBBBBBBBBBBBBBBB?         
-                                                        
-                                                        
-                                                        
-[0m
-               ''')
-                print("")
-                print(f"{Renk.YESIL} OS           :{Renk.RESET} {distro.name}",)
-                print(f"{Renk.YESIL} Current Path :{Renk.RESET} {os.getcwd()}",)
-                print(f"{Renk.YESIL} User         :{Renk.RESET} {getpass.getuser()}",)
-                print(f"{Renk.YESIL} Hostname     :{Renk.RESET} {platform.node()}",)
-                print(f"{Renk.YESIL} Kernel       :{Renk.RESET} {platform.system()}",)
-                print(f"{Renk.YESIL} Release      :{Renk.RESET} {platform.release()}",)
-                print(f"{Renk.YESIL} Machine      :{Renk.RESET} {platform.machine()}",)
-                print(f"{Renk.YESIL} Processor    :{Renk.RESET} {platform.processor()}",)
-                print(f"{Renk.YESIL} Python       :{Renk.RESET} {platform.python_version()}",)
-                print(f"{Renk.YESIL} Architecture :{Renk.RESET} {platform.architecture()[0]}",)
-                print(f"{Renk.YESIL} Libraries    :{Renk.RESET} {len(loaded_libraries)}",)
-                print(f"{Renk.YESIL} Theme        :{Renk.RESET} {load_theme()['renk']}",)
-                print(f"{Renk.YESIL} Banner       :{Renk.RESET} {load_theme()['banner']}",)
-                print(f"{Renk.YESIL} Uptime       :{Renk.RESET} {saat:02}:{dakika:02}:{saniye:02}",)
-                # ==================================================
-                # TERMINAL RENK PALETİ
-                # ==================================================
-                normal_renkler = [
-                    Renk.BG_SIYAH, 
-                    Renk.BG_KIRMIZI, 
-                    Renk.BG_YESIL, 
-                    Renk.BG_SARI,
-                    Renk.BG_MAVI, 
-                    Renk.BG_MOR, 
-                    Renk.BG_TURKUAZ, 
-                    Renk.BG_BEYAZ,
-                    ]
-                parlak_renkler = [
-                    Renk.BG_ACIK_SIYAH, 
-                    Renk.BG_ACIK_KIRMIZI, 
-                    Renk.BG_ACIK_YESIL, 
-                    Renk.BG_ACIK_SARI,
-                    Renk.BG_ACIK_MAVI, 
-                    Renk.BG_ACIK_MOR, 
-                    Renk.BG_ACIK_TURKUAZ, 
-                    Renk.BG_ACIK_BEYAZ,
-                    ]
-                print()
-                for renk in normal_renkler:
-                    	print(f"{renk}   {Renk.RESET}", end="")
-                print()
-                for renk in parlak_renkler:
-                    	print(f"{renk}   {Renk.RESET}", end="")
-                print("\n")
-                print("-" * 60)
-                print(f"{Renk.YESIL}AstraSage{Renk.RESET} • By: EnderAstra")
+                show_neofetch(distro)
             else:
                 print(
                     f"'{parcalar[2]}' "
