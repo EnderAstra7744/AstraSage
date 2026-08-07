@@ -47,6 +47,10 @@ from utils.android_helper import run_android_command
 from utils.system_reset import run_system_command
 from utils.distro_manager import distro_manager
 from utils.neofetch import show_neofetch
+from utils.doctor import doctor_target, doctor_system
+from utils.repair import repair_target, repair_system
+from python.python.python import run_python_command
+from python.pip.pip import run_pip_command
 
 DISTRO = "AstraSage"
 distro_manager.load(sys.modules[__name__])
@@ -92,11 +96,40 @@ COMMAND_TREE = {
             "-reset": {
                 "/s": {}
             },
+
+            # ==================================================
+            # ASTRA SAGE DOCTOR
+            # ==================================================
+
+            "doctor": {
+                "--K-AstraSage": "__DIRS__",
+                "--F-AstraSage": "__FILES__"
+            },
+
+            # ==================================================
+            # ASTRA SAGE REPAIR
+            # ==================================================
+
+            "repair": {
+                "--system": {},
+                "--file": "__FILES__",
+                "--folder": "__DIRS__"
+            }
         },
+
+        # ======================================================
+        # ALIAS
+        # ======================================================
+
         "alias": {
             "list": {},
             "remove": {}
         },
+
+        # ======================================================
+        # ANDROID
+        # ======================================================
+
         "android": {
             "-notify": {},
             "-copy": {},
@@ -104,32 +137,140 @@ COMMAND_TREE = {
             "-share": "__FILES__",
             "-vibrate": {}
         },
+
         "help": {},
+
         "clear": {},
+
+        # ======================================================
+        # LIBRARIES
+        # ======================================================
+
         "list": {
             "-libraries": {}
         },
+
+        # ======================================================
+        # HISTORY
+        # ======================================================
+
         "history": {
             "-clear": {}
         },
+
+        # ======================================================
+        # SYSTEM
+        # ======================================================
+
         "sys": {
-            "-neofetch": {}
+
+            # ==================================================
+            # NEOFETCH
+            # ==================================================
+
+            "-neofetch": {
+
+                "--ascii_logo=": {},
+
+                "--text_color=": {},
+
+                "--logo_color=": {},
+
+                "--separator=": {},
+
+                "--show_cpu=": {
+                    "true": {},
+                    "false": {}
+                },
+
+                "--show_memory=": {
+                    "true": {},
+                    "false": {}
+                },
+
+                "--show_pip=": {
+                    "true": {},
+                    "false": {}
+                },
+
+                "--config": {}
+            }
         },
-       "cd": "__DIRS__",
-       "ls": "__DIRS__",
-       "pwd": {},
-       "export": "__LIBRARIES__",
-       "unexport": "__LIBRARIES__",
-       "update": {},
-       "codeeditor": {},
-       "encode": "__FILES__",
-       "read": "__FILES__",
-       "info": "__FILES__",
-       "asinstall": {
+
+        # ======================================================
+        # DOSYA / KLASÖR
+        # ======================================================
+
+        "cd": "__DIRS__",
+
+        "ls": "__DIRS__",
+
+        "pwd": {},
+
+        # ======================================================
+        # LIBRARY EXPORT
+        # ======================================================
+
+        "export": "__LIBRARIES__",
+
+        "unexport": "__LIBRARIES__",
+
+        # ======================================================
+        # PYTHON
+        # ======================================================
+        "python": {
+           "run": "__FILES__",
+           "exec": {},
+           "version": {},
+           "path": {},
+           "info": {}
+        },
+        "pip": {
+           "install": {},
+           "uninstall": {},
+           "update": {},
+           "list": {},
+           "show": {},
+           "freeze": {},
+           "--version": {},
+           "path": {}
+        },
+        
+        # ======================================================
+        # UPDATE
+        # ======================================================
+        "update": {},
+
+        # ======================================================
+        # CODE EDITOR
+        # ======================================================
+
+        "codeeditor": {},
+
+        # ======================================================
+        # FILE TOOLS
+        # ======================================================
+
+        "encode": "__FILES__",
+
+        "read": "__FILES__",
+
+        "info": "__FILES__",
+
+        # ======================================================
+        # ASINSTALL
+        # ======================================================
+
+        "asinstall": {
             "python": {},
             "json": {},
-       },
-       "platform": {
+        },
+
+        # ======================================================
+        # PLATFORM
+        # ======================================================
+
+        "platform": {
             "-get": {
                 "name": {},
                 "version": {},
@@ -140,6 +281,11 @@ COMMAND_TREE = {
                 "all": {}
             }
         },
+
+        # ======================================================
+        # SERVER
+        # ======================================================
+
         "server": {
             "add": {},
             "delete": {},
@@ -147,22 +293,54 @@ COMMAND_TREE = {
         }
     },
 
+    # ==========================================================
+    # ASTRA AI
+    # ==========================================================
+
     "ai": {},
+
+    # ==========================================================
+    # ASTRA OCUNT
+    # ==========================================================
+
     "ao": {
-       "services": {
+        "services": {
             "-stop": {},
             "-start": {},
-       },
-    
+        },
     },
+
+    # ==========================================================
+    # ASTRA API
+    # ==========================================================
+
     "as-api": {},
+    # ==========================================================
+    # DISTROS
+    # ==========================================================
+
     "$arxsage": {},
+
     "$depsage": {},
+
     "$devsage": {},
+
     "$linuxsage": {},
+
+    # ==========================================================
+    # LAUNCHER
+    # ==========================================================
+
     "\\launcher": {},
+
+    # ==========================================================
+    # RETO
+    # ==========================================================
+
     "astra-sage-reto": {},
 }
+
+
 def _gorunur_uzunluk(s):
        return len(re.sub(r'\x1b\[[0-9;]*m', '', s))
 class AstraSageCompleter(Completer):
@@ -723,7 +901,98 @@ def main():
       elif parcalar[0] == "ai":
         run_ai_command(parcalar)
       elif parcalar[0] == "as" and len(parcalar) >= 2 and parcalar[1] == "!system":
-        run_system_command(parcalar)
+        if parcalar[2] == "-reset":
+        	run_system_command(parcalar)
+        # as !system doctor ...
+        if len(parcalar) >= 3 and parcalar[2] == "doctor":
+
+            if len(parcalar) < 4:
+                print("[!] Usage: as !system doctor --target")
+                continue
+
+            target = parcalar[3]
+
+           # --system
+            if target == "--system":
+
+                doctor_system(ASTRASAGE_KOK)
+
+            # --K-folder
+            elif target.startswith("--K-"):
+
+                folder_name = target[4:]
+
+                folder_path = os.path.join(
+                    ASTRASAGE_KOK,
+                    folder_name
+                )
+
+                doctor_target(folder_path)
+
+            # --F-file
+            elif target.startswith("--F-"):
+
+                file_name = target[4:]
+
+                file_path = os.path.join(
+                    ASTRASAGE_KOK,
+                    file_name
+                )
+
+                doctor_target(file_path)
+
+            else:
+
+                print(
+                    "[!] Unknown doctor target."
+                )
+
+            continue
+        
+        if len(parcalar) >= 3 and parcalar[2] == "repair":
+
+            if len(parcalar) < 4:
+                print("[!] Usage: as !system repair --target")
+                continue
+
+            target = parcalar[3]
+
+            # --system
+            if target == "--system":
+
+                repair_system(ASTRASAGE_KOK)
+
+            # --K-folder
+            elif target.startswith("--K-"):
+
+                folder_name = target[4:]
+
+                folder_path = os.path.join(
+                    ASTRASAGE_KOK,
+                    folder_name
+                )
+
+                repair_target(folder_path)
+
+            # --F-file
+            elif target.startswith("--F-"):
+
+                file_name = target[4:]
+
+                file_path = os.path.join(
+                    ASTRASAGE_KOK,
+                    file_name
+                 )
+
+                repair_target(file_path)
+
+            else:
+
+                print(
+                    "[!] Unknown repair target."
+                )
+
+            continue
       elif parcalar[0] == "as":
         if len(parcalar) < 2:
           print("Bunu Demeyi mi Çalıştın?")
@@ -817,29 +1086,25 @@ def main():
                   print(f"    {item}")
           except Exception as hata:
             print(f"[HATA] {hata}")
-        elif eylem == "ls":
-            hedef_klasor = parcalar[2] if len(parcalar) >= 3 else mevcut_dizin[0]
+        elif parcalar[1] == "pip":
+          subcommand = (
+              parcalar[2]
+              if len(parcalar) >= 3
+              else "info"
+          )
 
-            try:
-                icerik = os.listdir(hedef_klasor)
+          args = (
+              parcalar[3:]
+              if len(parcalar) >= 4
+              else []
+          )
 
-                if len(icerik) == 0:
-                    print("(boş klasör)")
-                else:
-                    for item in sorted(icerik):
-                        tam_yol = os.path.join(hedef_klasor, item)
+          run_pip_command(
+              subcommand,
+              args
+          )
 
-                        if os.path.isdir(tam_yol):
-                            print(
-                                f"{Renk.YESIL}[K] "
-                                f"{item}/{Renk.RESET}"
-                            )
-                        else:
-                            print(f"    {item}")
-
-            except Exception as hata:
-                print(f"[HATA] {hata}")
-
+          continue
         elif eylem == "sys":
             if len(parcalar) < 3:
                 print("Kullanım: as sys -neofetch")
@@ -852,7 +1117,27 @@ def main():
             saniye = uptime % 60
 
             if parcalar[2] == "-neofetch":
-                show_neofetch(distro)
+                neofetch_args = parcalar[3:]
+
+                try:
+
+                    from utils.neofetch import (
+                        run_neofetch_command
+                    )
+
+                    run_neofetch_command(
+                        args=neofetch_args,
+                        distro=DISTRO,
+                    )
+
+                except Exception as e:
+
+                    print(
+                        f"\033[91m"
+                        f"[AstraSage Neofetch Error] "
+                        f"{e}"
+                        f"\033[0m"
+                    )
             else:
                 print(
                     f"'{parcalar[2]}' "
@@ -1136,6 +1421,23 @@ def help_menu():
     komut("ai <Mesaj> -run", "Yapay zekâya mesaj gönderir.")
     komut("as encode <Dosyaİsmi>", "Dosyayı .ast formatına dönüştürür.")
     komut("as update -Version", "Terminali günceller.")
+    
+    print(f"\n{Renk.YESIL}[ PYTHON ]{Renk.RESET}")
+    komut("as python run <Dosya>", "Python dosyasını çalıştırır.")
+    komut("as python exec <Kod>", "Python kodunu çalıştırır.")
+    komut("as python version", "Python sürümünü gösterir.")
+    komut("as python path", "Python çalıştırıcısının yolunu gösterir.")
+    komut("as python info", "Python hakkında bilgi verir.")
+
+    print(f"\n{Renk.YESIL}[ PIP ]{Renk.RESET}")
+    komut("as pip install <Paket>", "Python paketi yükler.")
+    komut("as pip uninstall <Paket>", "Python paketini kaldırır.")
+    komut("as pip update <Paket>", "Python paketini günceller.")
+    komut("as pip list", "Yüklü Python paketlerini listeler.")
+    komut("as pip show <Paket>", "Python paketi hakkında bilgi gösterir.")
+    komut("as pip freeze", "Kurulu Python paketlerini listeler.")
+    komut("as pip --version", "Pip sürümünü gösterir.")
+    komut("as pip path", "Pip çalıştırıcısının yolunu gösterir.")
 
     print(f"\n{Renk.YESIL}[ DOSYA SİSTEMİ ]{Renk.RESET}")
     komut("as ls <Klasör>", "Klasör içeriğini listeler.")

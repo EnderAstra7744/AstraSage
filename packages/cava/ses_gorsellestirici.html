@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ses ile Hareket Eden Yeşil Çubuklar</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #0a0a0a;
+    overflow: hidden;
+    font-family: -apple-system, system-ui, sans-serif;
+    touch-action: manipulation;
+  }
+  #canvas-wrap {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #startScreen {
+    position: fixed;
+    inset: 0;
+    background: #0a0a0a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    z-index: 10;
+    text-align: center;
+    padding: 24px;
+  }
+  #startScreen h1 {
+    color: #00ff5a;
+    font-size: 22px;
+    font-weight: 600;
+  }
+  #startScreen p {
+    color: #888;
+    font-size: 14px;
+    max-width: 300px;
+    line-height: 1.5;
+  }
+  #startBtn {
+    background: #00ff5a;
+    color: #0a0a0a;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 30px;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #startBtn:active { opacity: 0.8; }
+  #errorMsg {
+    color: #ff5555;
+    font-size: 13px;
+    max-width: 300px;
+    display: none;
+  }
+  #hint {
+    position: fixed;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #444;
+    font-size: 11px;
+    z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>🎤 Ses Görselleştirici</h1>
+  <p>Mikrofonunuzdan gelen sese tepki veren yeşil çubukları görmek için başlatın.</p>
+  <button id="startBtn">Başlat</button>
+  <p id="errorMsg"></p>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+<div id="hint">Durdurmak için sekmeyi kapatın</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const startScreen = document.getElementById('startScreen');
+const startBtn = document.getElementById('startBtn');
+const errorMsg = document.getElementById('errorMsg');
+
+const NUM_BARS = 40;
+const SMOOTHING = 0.75;
+let barHeights = new Array(NUM_BARS).fill(0);
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth * window.devicePixelRatio;
+  canvas.height = window.innerHeight * window.devicePixelRatio;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+async function startVisualizer() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.4;
+    source.connect(analyser);
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    startScreen.style.display = 'none';
+
+    function logBinEdges(numBars, totalBins) {
+      const edges = [];
+      for (let i = 0; i <= numBars; i++) {
+        const t = i / numBars;
+        edges.push(Math.floor(Math.pow(totalBins, t)));
+      }
+      return edges;
+    }
+    const binEdges = logBinEdges(NUM_BARS, bufferLength);
+
+    function draw() {
+      requestAnimationFrame(draw);
+      analyser.getByteFrequencyData(dataArray);
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, w, h);
+
+      const barWidth = w / NUM_BARS;
+
+      for (let i = 0; i < NUM_BARS; i++) {
+        const start = binEdges[i];
+        const end = Math.max(binEdges[i + 1], start + 1);
+        let sum = 0;
+        for (let j = start; j < end; j++) sum += dataArray[j];
+        const avg = sum / (end - start);
+        const ratio = avg / 255;
+
+        barHeights[i] = SMOOTHING * barHeights[i] + (1 - SMOOTHING) * ratio;
+
+        const barHeight = barHeights[i] * (h * 0.85);
+        const x = i * barWidth;
+        const y = h - barHeight;
+
+        const r = Math.round(0 + (0 - 0) * barHeights[i]);
+        const g = Math.round(60 + (255 - 60) * barHeights[i]);
+        const b = Math.round(0 + (90 - 0) * barHeights[i]);
+
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        const pad = barWidth * 0.12;
+        ctx.beginPath();
+        ctx.roundRect(x + pad, y, barWidth - pad * 2, barHeight, 4);
+        ctx.fill();
+      }
+    }
+    draw();
+
+  } catch (err) {
+    errorMsg.style.display = 'block';
+    errorMsg.textContent = 'Mikrofon erişimi reddedildi ya da desteklenmiyor: ' + err.message;
+  }
+}
+
+startBtn.addEventListener('click', startVisualizer);
+</script>
+
+</body>
+</html>

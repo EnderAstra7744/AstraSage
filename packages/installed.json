@@ -1,0 +1,17 @@
+{
+  "chose-stayle": {
+    "pc_dosyasi": "assets/pc/chose-stayle.pc"
+  },
+  "math": {
+    "pc_dosyasi": "assets/pc/math.pc"
+  },
+  "oneko": {
+    "pc_dosyasi": "assets/pc/oneko.pc"
+  },
+  "cava": {
+    "pc_dosyasi": "assets/pc/cava.pc"
+  },
+  "fmatrix": {
+    "pc_dosyasi": "assets/pc/fmatrix.pc"
+  }
+}

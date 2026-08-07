@@ -1,0 +1,27 @@
+{
+    "astra_sage": {
+        "module": "AstraSage Pip",
+        "timestamp": "2026-08-06T17:52:32.111957"
+    },
+    "system": {
+        "platform": "Linux",
+        "platform_release": "5.10.223-android13-4-28701120",
+        "machine": "aarch64",
+        "architecture": "64bit",
+        "python_version": "3.13.13"
+    },
+    "operation": "install",
+    "package": "cyton",
+    "command": [
+        "/data/user/0/ru.iiec.pydroid3/files/aarch64-linux-android/bin/python3",
+        "-m",
+        "pip",
+        "install",
+        "cyton"
+    ],
+    "returncode": 1,
+    "error": null,
+    "stdout": null,
+    "stderr": null,
+    "extra": null
+}

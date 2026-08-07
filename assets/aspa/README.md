@@ -1,1 +1,0 @@
-Bu Bir AstraSage Virüsünün!!!

@@ -7,10 +7,385 @@ import platform
 import socket
 import subprocess
 import re
+import json
+import sys
 from datetime import timedelta
 
+DISTRO = "AstraSage"
 ASTRASAGE_KOK = os.getcwd()  # AstraSage'in gerçek kök dizini, hiç değişmez
 TEMA_DOSYASI = os.path.join(ASTRASAGE_KOK, "assets", "astrasage_theme.json")
+
+# ============================================================
+# YENİ: NEOFETCH CONFIG
+# ============================================================
+
+NEOFETCH_CONFIG_DOSYASI = os.path.join(
+    ASTRASAGE_KOK,
+    "assets",
+    "neofetch.json"
+)
+
+DEFAULT_NEOFETCH_CONFIG = {
+    "ascii_logo": None,
+    "text_color": None,
+    "logo_color": None,
+    "separator": "-",
+    "show_cpu": True,
+    "show_memory": True,
+    "show_pip": True
+}
+
+
+def load_neofetch_config():
+    """
+    Neofetch özel ayarlarını yükler.
+    """
+
+    if not os.path.exists(NEOFETCH_CONFIG_DOSYASI):
+        return DEFAULT_NEOFETCH_CONFIG.copy()
+
+    try:
+
+        with open(
+            NEOFETCH_CONFIG_DOSYASI,
+            "r",
+            encoding="utf-8"
+        ) as f:
+
+            data = json.load(f)
+
+        config = DEFAULT_NEOFETCH_CONFIG.copy()
+
+        if isinstance(data, dict):
+            config.update(data)
+
+        return config
+
+    except Exception:
+
+        return DEFAULT_NEOFETCH_CONFIG.copy()
+
+
+def save_neofetch_config(config):
+    """
+    Neofetch ayarlarını kalıcı olarak kaydeder.
+    """
+
+    try:
+
+        os.makedirs(
+            os.path.dirname(NEOFETCH_CONFIG_DOSYASI),
+            exist_ok=True
+        )
+
+        with open(
+            NEOFETCH_CONFIG_DOSYASI,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            json.dump(
+                config,
+                f,
+                indent=4,
+                ensure_ascii=False
+            )
+
+        return True
+
+    except Exception:
+
+        return False
+
+
+def parse_bool(value):
+    """
+    true / false değerlerini Python bool değerine çevirir.
+    """
+
+    if isinstance(value, bool):
+        return value
+
+    value = str(value).lower().strip()
+
+    if value in (
+        "true",
+        "1",
+        "yes",
+        "on",
+        "aktif"
+    ):
+        return True
+
+    if value in (
+        "false",
+        "0",
+        "no",
+        "off",
+        "pasif"
+    ):
+        return False
+
+    return None
+
+
+def ansi_code(value):
+    """
+    ANSI renk kodunu güvenli şekilde oluşturur.
+
+    Örnek:
+
+        32
+        38;5;154
+    """
+
+    if value is None:
+        return None
+
+    value = str(value).strip()
+
+    # Kullanıcı doğrudan \033[32m verirse
+    if value.startswith("\033["):
+        return value
+
+    # Kullanıcı 32m verirse
+    if value.endswith("m"):
+        value = value[:-1]
+
+    # Sadece ANSI sayı / ; değerlerine izin ver
+    if not re.fullmatch(
+        r"[0-9;]+",
+        value
+    ):
+        return None
+
+    return f"\033[{value}m"
+
+
+def build_custom_logo(logo):
+    """
+    Kullanıcının verdiği özel logoyu satırlara ayırır.
+    """
+
+    if logo is None:
+        return None
+
+    logo = str(logo)
+
+    # \n karakterlerini gerçek satıra dönüştür
+    logo = logo.replace(
+        "\\n",
+        "\n"
+    )
+
+    return logo.splitlines()
+
+
+def colorize_logo(
+    logo_lines,
+    color
+):
+    """
+    Logonun mevcut ANSI renklerini kaldırıp
+    seçilen tek renkle boyar.
+    """
+
+    if not color:
+        return logo_lines
+
+    cleaned = []
+
+    for line in logo_lines:
+
+        plain = strip_ansi(line)
+
+        cleaned.append(
+            f"{color}{plain}{RESET}"
+        )
+
+    return cleaned
+
+
+def apply_neofetch_arguments(
+    args
+):
+    """
+    AstraSage Neofetch parametrelerini işler.
+
+    Desteklenen:
+
+        --ascii_logo="..."
+        --text_color="32"
+        --logo_color="36"
+        --separator=":"
+        --show_cpu=true
+        --show_memory=false
+        --show_pip=true
+        --config
+    """
+
+    config = load_neofetch_config()
+
+    if not args:
+        return config, False
+
+    show_config = False
+
+    for arg in args:
+
+        if not arg.startswith("--"):
+            continue
+
+        # ----------------------------------------------------
+        # --config
+        # ----------------------------------------------------
+
+        if arg == "--config":
+
+            show_config = True
+            continue
+
+        # ----------------------------------------------------
+        # KEY=VALUE
+        # ----------------------------------------------------
+
+        if "=" not in arg:
+            continue
+
+        key, value = arg[2:].split(
+            "=",
+            1
+        )
+
+        # Tırnakları temizle
+        value = value.strip()
+
+        if (
+            len(value) >= 2
+            and (
+                (
+                    value.startswith('"')
+                    and value.endswith('"')
+                )
+                or
+                (
+                    value.startswith("'")
+                    and value.endswith("'")
+                )
+            )
+        ):
+            value = value[1:-1]
+
+        # ----------------------------------------------------
+        # ASCII LOGO
+        # ----------------------------------------------------
+
+        if key == "ascii_logo":
+
+            config["ascii_logo"] = value
+
+        # ----------------------------------------------------
+        # TEXT COLOR
+        # ----------------------------------------------------
+
+        elif key == "text_color":
+
+            color = ansi_code(value)
+
+            if color:
+                config["text_color"] = value
+
+        # ----------------------------------------------------
+        # LOGO COLOR
+        # ----------------------------------------------------
+
+        elif key == "logo_color":
+
+            color = ansi_code(value)
+
+            if color:
+                config["logo_color"] = value
+
+        # ----------------------------------------------------
+        # SEPARATOR
+        # ----------------------------------------------------
+
+        elif key == "separator":
+
+            config["separator"] = value
+
+        # ----------------------------------------------------
+        # CPU
+        # ----------------------------------------------------
+
+        elif key == "show_cpu":
+
+            boolean = parse_bool(value)
+
+            if boolean is not None:
+                config["show_cpu"] = boolean
+
+        # ----------------------------------------------------
+        # MEMORY
+        # ----------------------------------------------------
+
+        elif key == "show_memory":
+
+            boolean = parse_bool(value)
+
+            if boolean is not None:
+                config["show_memory"] = boolean
+
+        # ----------------------------------------------------
+        # PIP
+        # ----------------------------------------------------
+
+        elif key == "show_pip":
+
+            boolean = parse_bool(value)
+
+            if boolean is not None:
+                config["show_pip"] = boolean
+
+    # Ayarları kalıcı yap
+    save_neofetch_config(config)
+
+    return config, show_config
+
+
+def print_neofetch_config(config):
+    """
+    Aktif Neofetch ayarlarını gösterir.
+    """
+
+    print()
+
+    print(
+        "\033[1;38;5;154m"
+        "AstraSage Neofetch Configuration"
+        f"{RESET}"
+    )
+
+    print()
+
+    for key, value in config.items():
+
+        print(
+            f"  {key}: {value}"
+        )
+
+    print()
+
+    print(
+        f"Config: {NEOFETCH_CONFIG_DOSYASI}"
+    )
+
+    print()
+
+
+# ============================================================
+# ESKİ TEMA SİSTEMİ
+# ============================================================
 
 def load_theme():
     if not os.path.exists(TEMA_DOSYASI):
@@ -20,6 +395,8 @@ def load_theme():
             return json.load(f)
     except Exception:
         return {"renk": "yesil", "banner": "klasik"}
+
+
 # ============================================================
 # ASTRA SAGE ANSI RENK SİSTEMİ
 # ============================================================
@@ -172,7 +549,8 @@ class Renk:
     BG_ACIK_MOR = "\033[105m"
     BG_ACIK_TURKUAZ = "\033[106m"
     BG_ACIK_BEYAZ = "\033[107m"
-    
+
+
 # ------------------------------------------------------------
 # PSUTIL
 # ------------------------------------------------------------
@@ -191,25 +569,27 @@ except ImportError:
 RESET = "\033[0m"
 
 LOGO = r'''
-[38;5;154m          /@@@@@@@@@@@@@@@@@@@@@@@@[38;5;112m@M@@@@@@@@@\         
-          [38;5;154m@@@@@@@@@@@@@@@@@@@@@@@@[38;5;112mm@@@@@@@@@@@|         
-          [38;5;154m@K@@@@@@@@@@@@@@@@@@@[38;5;112m@@@@@@@@@M@@M@@[38;5;64m@         
-          [38;5;154m@@@@@@@@@@@M@@@@@[38;5;112m@@@@@@@@@@@@M@@@@@@[38;5;64m]         
-          [38;5;154m@@M@@@@@@@@@@[38;5;112m@@@@@@@@@M@@@@M@@@@@@@|[38;5;64m@         
-          [38;5;154m@@@@@@@@@@@[38;5;112m@@A@@@@M@@@@@@@@@@@@@@@@[38;5;64mM@         
-          [38;5;154m@@@@@@[38;5;112m@@@@@@@@M@@@M@@@@@@@@@@M@@@@@[38;5;64m[S         
-          [38;5;154m@@@@[38;5;112m@@@@B@@@@@M@@@@@@@@MM@@@@M@@@@][38;5;64m@@         
-          [38;5;154m@[38;5;112m@M@@@@@     0@@@@M@@@@@M@@@@@@@@@[38;5;64m@@G         
-          [38;5;112mg@@@@@@   .   @@@@@@@@M@@@@@M@@@@@[38;5;64m[@g         
-          [38;5;112m@@M@@@    @   `@@@@"      T@@@@M@F[38;5;64m@@g         
-          [38;5;112m@@@@@/   @@p   \@@   .@g   @@@@@@@[38;5;64m@@g         
-          [38;5;112mM@@@F           V@\     "<@@@M@@@[38;5;64m[@@g         
-          [38;5;112m@@@D    _____    @BBBg__   @@M@@F[38;5;64m@@@g         
-          [38;5;112m@@@    @@@@@@@       `""   @@@@@M[38;5;64m@@@g         
-          [38;5;112m@@L___g@@@@@@@b___[g_____~@@@@@@[38;5;64m[@@@g         
-          [38;5;112m@@@@@M@@@@@@M@@@@@@@BBP@@@@@@[38;5;64mM@@@@@@g         
-          [38;5;112m\P@MM@@@[38;5;70m@@@@@M@@@M@@@[38;5;64m@@BB@@B@M@@BBB@/         
-'''.replace("[38;5;", "\033[38;5;").splitlines()
+  [38;5;154m/@@@@@@@@@@@@@@@@@@@@@@@@[38;5;112m@M@@@@@@@@@\
+  [38;5;154m@K@@@@@@@@@@@@@@@@@@@[38;5;112m@@@@@@@@@M@@M@@[38;5;64m@
+  [38;5;154m@@@@@@@@@@@M@@@@@[38;5;112m@@@@@@@@@@@@M@@@@@@[38;5;64m]
+  [38;5;154m@@M@@@@@@@@@@[38;5;112m@@@@@@@@@M@@@@M@@@@@@@|[38;5;64m@
+  [38;5;154m@@@@@@@@@@@[38;5;112m@@A@@@@M@@@@@@@@@@@@@@@@[38;5;64mM@
+  [38;5;154m@@@@@@[38;5;112m@@@@@@@@M@@@M@@@@@@@@@@M@@@@@[38;5;64m[S
+  [38;5;154m@@@@[38;5;112m@@@@B@@@@@M@@@@@@@@MM@@@@M@@@@][38;5;64m@@
+  [38;5;154m@[38;5;112m@M@@@@@     0@@@@M@@@@@M@@@@@@@@@[38;5;64m@@G
+  [38;5;112mg@@@@@@   .   @@@@@@@@M@@@@@M@@@@@[38;5;64m[@g
+  [38;5;112m@@M@@@    @   `@@@@"      T@@@@M@F[38;5;64m@@g
+  [38;5;112m@@@@@/   @@p   \@@   .@g   @@@@@@@[38;5;64m@@g
+  [38;5;112mM@@@F           V@\     "<@@@M@@@[38;5;64m[@@g
+  [38;5;112m@@@D    _____    @BBBg__   @@M@@F[38;5;64m@@@g
+  [38;5;112m@@@    @@@@@@@       `""   @@@@@M[38;5;64m@@@g
+  [38;5;112m@@L___g@@@@@@@b___[g_____~@@@@@@[38;5;64m[@@@g
+  [38;5;112m@@@@@M@@@@@@M@@@@@@@BBP@@@@@@[38;5;64mM@@@@@@g
+  [38;5;112m\P@MM@@@[38;5;70m@@@@@M@@@M@@@[38;5;64m@@BB@@B@M@@BBB@/
+'''.replace(
+    "[38;5;",
+    "\033[38;5;"
+).splitlines()
 
 
 # ------------------------------------------------------------
@@ -453,7 +833,9 @@ def get_disk():
 
     return "Bilinmiyor"
 
+
 def get_user():
+
     # 1. Python'un sistem kullanıcı bilgisini kullan
     try:
         import getpass
@@ -461,29 +843,41 @@ def get_user():
 
         if user and user.strip():
             return user.strip()
+
     except Exception:
         pass
 
     # 2. POSIX sistemlerde UID üzerinden gerçek kullanıcıyı bul
     try:
         import pwd
-        user = pwd.getpwuid(os.getuid()).pw_name
+        user = pwd.getpwuid(
+            os.getuid()
+        ).pw_name
 
         if user and user.strip():
             return user.strip()
+
     except Exception:
         pass
 
     # 3. Ortam değişkenleri
-    for env_name in ("USER", "USERNAME", "LOGNAME"):
-        user = os.environ.get(env_name)
+    for env_name in (
+        "USER",
+        "USERNAME",
+        "LOGNAME"
+    ):
+
+        user = os.environ.get(
+            env_name
+        )
 
         if user and user.strip():
             return user.strip()
 
     # Hiçbiri bulunamazsa
     return "Bilinmiyor"
- 
+
+
 def get_terminal():
 
     return os.environ.get(
@@ -494,12 +888,18 @@ def get_terminal():
         )
     )
 
-
-# ------------------------------------------------------------
+# ============================================================
 # BİLGİLERİ OLUŞTUR
-# ------------------------------------------------------------
+# ============================================================
 
-def build_info_lines(distro=None):
+def build_info_lines(
+    distro=None,
+    text_color=None,
+    separator="-",
+    show_cpu=True,
+    show_memory=True,
+    show_pip=True
+):
 
     user = get_user()
 
@@ -514,16 +914,26 @@ def build_info_lines(distro=None):
         f"{RESET}"
     )
 
-    sep = "-" * len(
+    sep = separator * len(
         f"{user}@{host}"
     )
 
-    label_color = (
-        "\033[1;38;5;112m"
-    )
+    # --------------------------------------------------------
+    # YENİ:
+    # Özel text_color varsa eski label renginin yerine kullan
+    # --------------------------------------------------------
+
+    if text_color:
+
+        label_color = text_color
+
+    else:
+
+        label_color = (
+            "\033[1;38;5;112m"
+        )
 
     fields = [
-
         (
             "OS",
             get_os(distro)
@@ -573,24 +983,44 @@ def build_info_lines(distro=None):
             "Terminal",
             get_terminal()
         ),
+    ]
 
-        (
-            "CPU",
-            get_cpu()
-        ),
+    # --------------------------------------------------------
+    # YENİ: CPU kapatılabilir
+    # --------------------------------------------------------
 
-        (
-            "Memory",
-            get_memory()
-        ),
+    if show_cpu:
 
+        fields.append(
+            (
+                "CPU",
+                get_cpu()
+            )
+        )
+
+    # --------------------------------------------------------
+    # YENİ: Memory kapatılabilir
+    # --------------------------------------------------------
+
+    if show_memory:
+
+        fields.append(
+            (
+                "Memory",
+                get_memory()
+            )
+        )
+
+    # --------------------------------------------------------
+    # Disk
+    # --------------------------------------------------------
+
+    fields.append(
         (
             "Disk (/)",
             get_disk()
-        ),
-
-    ]
-
+        )
+    )
     lines = [
         title,
         sep
@@ -606,11 +1036,14 @@ def build_info_lines(distro=None):
         )
 
     return lines
-# ============================================================
+
+
+# ------------------------------------------------------------
 # TERMINAL RENK PALETİ
-# ============================================================
+# ------------------------------------------------------------
 
 def build_palette_lines():
+
     normal_renkler = [
         "\033[40m",   # BG_SIYAH
         "\033[41m",   # BG_KIRMIZI
@@ -652,6 +1085,55 @@ def build_palette_lines():
     lines.append(parlak)
 
     return lines
+
+
+# ============================================================
+# YENİ: NEOFETCH LOGOSU OLUŞTUR
+# ============================================================
+
+def get_neofetch_logo(config):
+
+    custom_logo = config.get(
+        "ascii_logo"
+    )
+
+    logo_color_value = config.get(
+        "logo_color"
+    )
+
+    # --------------------------------------------------------
+    # Özel logo varsa kullan
+    # --------------------------------------------------------
+
+    if custom_logo:
+
+        logo_lines = build_custom_logo(
+            custom_logo
+        )
+
+    else:
+
+        logo_lines = LOGO
+
+    # --------------------------------------------------------
+    # Logo rengi
+    # --------------------------------------------------------
+
+    if logo_color_value:
+
+        color = ansi_code(
+            logo_color_value
+        )
+
+        if color:
+
+            logo_lines = colorize_logo(
+                logo_lines,
+                color
+            )
+
+    return logo_lines
+
 
 # ------------------------------------------------------------
 # LOGO + BİLGİLERİ YAN YANA YAZ
@@ -706,24 +1188,122 @@ def print_side_by_side(
         )
 
 
-# ------------------------------------------------------------
-# ANA NEofetch FONKSİYONU
-# ------------------------------------------------------------
-def show_neofetch(distro=None):
+# ============================================================
+# YENİ: ANA NEOFETCH FONKSİYONU
+# ============================================================
 
-    logo_lines = LOGO
+def show_neofetch(
+    distro=None,
+    args=None
+):
 
+    # --------------------------------------------------------
+    # Config yükle
+    # --------------------------------------------------------
+
+    config = load_neofetch_config()
+
+    # --------------------------------------------------------
+    # Komut satırı argümanlarını işle
+    # --------------------------------------------------------
+
+    if args is None:
+        args = []
+
+    if args:
+
+        config, show_config = (
+            apply_neofetch_arguments(
+                args
+            )
+        )
+
+        if show_config:
+
+            print_neofetch_config(
+                config
+            )
+
+    # --------------------------------------------------------
+    # Text color
+    # --------------------------------------------------------
+
+    text_color = ansi_code(
+        config.get(
+            "text_color"
+        )
+    )
+
+    # --------------------------------------------------------
+    # Separator
+    # --------------------------------------------------------
+
+    separator = config.get(
+        "separator",
+        "-"
+    )
+
+    if separator is None:
+        separator = "-"
+
+    # --------------------------------------------------------
+    # Boolean ayarlar
+    # --------------------------------------------------------
+
+    show_cpu = config.get(
+        "show_cpu",
+        True
+    )
+
+    show_memory = config.get(
+        "show_memory",
+        True
+    )
+
+    show_pip = config.get(
+        "show_pip",
+        True
+    )
+
+    # --------------------------------------------------------
+    # Logo
+    # --------------------------------------------------------
+
+    logo_lines = get_neofetch_logo(
+        config
+    )
+
+    # --------------------------------------------------------
     # Sistem bilgileri
-    info_lines = build_info_lines(distro)
+    # --------------------------------------------------------
 
+    info_lines = build_info_lines(
+        distro=distro,
+        text_color=text_color,
+        separator=separator,
+        show_cpu=show_cpu,
+        show_memory=show_memory,
+        show_pip=show_pip
+    )
+
+    # --------------------------------------------------------
     # Renk paleti
-    palette_lines = build_palette_lines()
+    # --------------------------------------------------------
+
+    palette_lines = (
+        build_palette_lines()
+    )
 
     # Bilgilerin altına paleti ekle
     info_lines.append("")
-    info_lines.extend(palette_lines)
 
-    print()
+    info_lines.extend(
+        palette_lines
+    )
+
+    # --------------------------------------------------------
+    # Yazdır
+    # --------------------------------------------------------
 
     print_side_by_side(
         logo_lines,
@@ -731,8 +1311,57 @@ def show_neofetch(distro=None):
     )
 
     print()
-    
-    
-    
+
+
+# ============================================================
+# YENİ: NEOFETCH ARGÜMAN PARSER
+# ============================================================
+
+def run_neofetch_command(
+    args=None,
+    distro=None,
+):
+    """
+    AstraSage tarafından kullanılabilecek Neofetch
+    komut yöneticisi.
+
+    Örnek:
+
+        as sys -neofetch
+
+        as sys -neofetch --ascii_logo="AstraSage"
+
+        as sys -neofetch --text_color="32"
+
+        as sys -neofetch --logo_color="36"
+
+        as sys -neofetch --separator=":"
+
+        as sys -neofetch --show_cpu=false
+
+        as sys -neofetch --show_memory=false
+
+        as sys -neofetch --show_pip=false
+
+        as sys -neofetch --config
+    """
+    if args is None:
+        args = []
+    show_neofetch(
+            args=args,
+    )
+
+
+# ============================================================
+# DOĞRUDAN ÇALIŞTIRMA
+# ============================================================
+
 if __name__ == '__main__':
-	show_neofetch()
+
+    # Terminalden verilen parametreleri al
+    args = sys.argv[1:]
+
+    run_neofetch_command(
+        args=args,
+        distro=DISTRO
+    )
