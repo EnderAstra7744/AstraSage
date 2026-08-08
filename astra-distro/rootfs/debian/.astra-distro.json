@@ -1,0 +1,10 @@
+{
+    "id": "debian",
+    "name": "Debian",
+    "description": "Debian GNU/Linux",
+    "architecture": "aarch64",
+    "astra_distro": {
+        "version": "1.0"
+    },
+    "installed_at": "2026-08-08T12:28:56.204889"
+}

@@ -19,6 +19,7 @@ import getpass
 import sys
 import subprocess
 import readline
+import traceback
 from utils.code_editor import open_code_editor
 from utils.at_helper import extract_at_target, resolve_target_path
 from utils.cdir import cdir_file
@@ -51,6 +52,7 @@ from utils.doctor import doctor_target, doctor_system
 from utils.repair import repair_target, repair_system
 from python.python.python import run_python_command
 from python.pip.pip import run_pip_command
+from astra_distro import astra_distro
 
 DISTRO = "AstraSage"
 distro_manager.load(sys.modules[__name__])
@@ -338,6 +340,20 @@ COMMAND_TREE = {
     # ==========================================================
 
     "astra-sage-reto": {},
+    
+    # ==========================================================
+    # Astra-Distro
+    # ==========================================================
+    "astra-distro": {
+        "list": "",
+        "install": "<Distro>",
+        "join": "<Distro>",
+        "remove": "<Distro>",
+        "info": "<Distro>",
+        "default": "<Distro>",
+        "version": "",
+        "help": ""
+    },
 }
 
 
@@ -900,6 +916,8 @@ def main():
         run_ao_command(parcalar)
       elif parcalar[0] == "ai":
         run_ai_command(parcalar)
+      elif parcalar[0] == "astra-distro":
+      	astra_distro(parcalar[1:])
       elif parcalar[0] == "as" and len(parcalar) >= 2 and parcalar[1] == "!system":
         if parcalar[2] == "-reset":
         	run_system_command(parcalar)
