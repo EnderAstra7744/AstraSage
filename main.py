@@ -228,12 +228,12 @@ COMMAND_TREE = {
         "pip": {
            "install": {},
            "uninstall": {},
-           "update": {},
+           "upgrade": {},
            "list": {},
            "show": {},
            "freeze": {},
            "--version": {},
-           "path": {}
+           "doctor": {},
         },
         
         # ======================================================
@@ -1432,12 +1432,12 @@ def help_menu():
     print(f"\n{Renk.YESIL}[ PIP ]{Renk.RESET}")
     komut("as pip install <Paket>", "Python paketi yükler.")
     komut("as pip uninstall <Paket>", "Python paketini kaldırır.")
-    komut("as pip update <Paket>", "Python paketini günceller.")
+    komut("as pip upgrade <Paket>", "Python paketini günceller.")
     komut("as pip list", "Yüklü Python paketlerini listeler.")
     komut("as pip show <Paket>", "Python paketi hakkında bilgi gösterir.")
     komut("as pip freeze", "Kurulu Python paketlerini listeler.")
     komut("as pip --version", "Pip sürümünü gösterir.")
-    komut("as pip path", "Pip çalıştırıcısının yolunu gösterir.")
+    komut("as pip doctor", "Pip Hatalarını Kontrol eder ve 'gösterir.")
 
     print(f"\n{Renk.YESIL}[ DOSYA SİSTEMİ ]{Renk.RESET}")
     komut("as ls <Klasör>", "Klasör içeriğini listeler.")

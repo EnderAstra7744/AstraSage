@@ -1,38 +1,38 @@
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual environments
 venv/
 env/
 .venv/
-
-# Python packaging
+packages/
+python/pip/logs/
 build/
 dist/
 *.egg-info/
-
-# IDE
 .vscode/
 .idea/
-
-# Operating system
 .DS_Store
 Thumbs.db
-
-# Logs
 *.log
-
-# Temporary files
 *.tmp
 *.temp
-
-# AstraSage local data
 assets/history.json
-
-# Local configuration
 .env
-
-# Pydroid / Android temporary files
-*.pyc
+*.pyc.pycDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.temp
+assets/history.json
+.env
+*.pyc.pyc*.tmp
+*.temp
+assets/history.json
+.env
+*.pyc.pyctory.json
+.env
+*.pyc.pyc
+commands/
