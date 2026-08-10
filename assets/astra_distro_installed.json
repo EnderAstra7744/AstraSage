@@ -1,0 +1,12 @@
+{
+  "ubuntu": {
+    "name": "Ubuntu",
+    "version": "24.04",
+    "arch": "arm64",
+    "path": "/storage/emulated/0/Documents/Python_projects/AstraSage/rootfs/ubuntu",
+    "shell": "/bin/bash",
+    "pkg_manager": "apt",
+    "installed_at": "2026-08-09 10:57:04",
+    "source": "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04-base-arm64.tar.gz"
+  }
+}

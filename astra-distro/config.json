@@ -1,7 +1,0 @@
-{
-    "version": "1.0",
-    "installed": [
-        "debian"
-    ],
-    "default_distro": "debian"
-}

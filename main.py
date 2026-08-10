@@ -1,5 +1,14 @@
+#CREDITS:
 #AstraSage • By:EnderAstra
 #Açık kaynaklı Terminal
+
+#INFORMATION:
+#AstraSage'in Ana Dosyası main.py
+#NOT:
+#  Herhangi Bir Bilgi Dosyasını Okumadan Sistem Dosyalarını Değiştirmeyiniz!!
+#Örn: README.md, LICENSE gibi
+
+#PYTHON CODE:
 
 #İmport değişkenleri
 import random
@@ -52,7 +61,7 @@ from utils.doctor import doctor_target, doctor_system
 from utils.repair import repair_target, repair_system
 from python.python.python import run_python_command
 from python.pip.pip import run_pip_command
-from astra_distro import astra_distro
+from utils.as_tree import run_tree
 
 DISTRO = "AstraSage"
 distro_manager.load(sys.modules[__name__])
@@ -98,40 +107,32 @@ COMMAND_TREE = {
             "-reset": {
                 "/s": {}
             },
-
             # ==================================================
             # ASTRA SAGE DOCTOR
             # ==================================================
-
             "doctor": {
                 "--K-AstraSage": "__DIRS__",
                 "--F-AstraSage": "__FILES__"
             },
-
             # ==================================================
             # ASTRA SAGE REPAIR
             # ==================================================
-
             "repair": {
                 "--system": {},
                 "--file": "__FILES__",
                 "--folder": "__DIRS__"
             }
         },
-
         # ======================================================
         # ALIAS
         # ======================================================
-
         "alias": {
             "list": {},
             "remove": {}
         },
-
         # ======================================================
         # ANDROID
         # ======================================================
-
         "android": {
             "-notify": {},
             "-copy": {},
@@ -139,93 +140,71 @@ COMMAND_TREE = {
             "-share": "__FILES__",
             "-vibrate": {}
         },
-
         "help": {},
-
         "clear": {},
-
         # ======================================================
         # LIBRARIES
         # ======================================================
-
         "list": {
             "-libraries": {}
         },
-
         # ======================================================
         # HISTORY
         # ======================================================
-
         "history": {
             "-clear": {}
         },
-
         # ======================================================
         # SYSTEM
         # ======================================================
-
         "sys": {
-
+            "--distro": {},
+            "--version": {},
             # ==================================================
             # NEOFETCH
             # ==================================================
-
             "-neofetch": {
-
                 "--ascii_logo=": {},
-
                 "--text_color=": {},
-
                 "--logo_color=": {},
-
                 "--separator=": {},
-
                 "--show_cpu=": {
                     "true": {},
                     "false": {}
                 },
-
                 "--show_memory=": {
                     "true": {},
                     "false": {}
                 },
-
                 "--show_pip=": {
                     "true": {},
                     "false": {}
                 },
-
                 "--config": {}
             }
         },
-
         # ======================================================
         # DOSYA / KLASÖR
         # ======================================================
-
         "cd": "__DIRS__",
-
         "ls": "__DIRS__",
-
         "pwd": {},
-
         # ======================================================
         # LIBRARY EXPORT
         # ======================================================
-
         "export": "__LIBRARIES__",
-
         "unexport": "__LIBRARIES__",
-
         # ======================================================
         # PYTHON
         # ======================================================
         "python": {
            "run": "__FILES__",
            "exec": {},
-           "version": {},
-           "path": {},
-           "info": {}
+           "--version": {},
+           "shell": {},
+           "info": {},
+           "doctor": {},
+           "module": {},
         },
         "pip": {
            "install": {},
@@ -242,36 +221,34 @@ COMMAND_TREE = {
         # UPDATE
         # ======================================================
         "update": {},
-
         # ======================================================
         # CODE EDITOR
         # ======================================================
-
         "codeeditor": {},
-
         # ======================================================
         # FILE TOOLS
         # ======================================================
-
         "encode": "__FILES__",
-
         "read": "__FILES__",
-
         "info": "__FILES__",
-
+        # ==========================================================
+        # TREE
+        # ==========================================================
+        "tree": {
+           "--file-system": {},
+           "--as-commands": {},
+           "--help": {},
+        },
         # ======================================================
         # ASINSTALL
         # ======================================================
-
         "asinstall": {
             "python": {},
             "json": {},
         },
-
         # ======================================================
         # PLATFORM
         # ======================================================
-
         "platform": {
             "-get": {
                 "name": {},
@@ -283,77 +260,47 @@ COMMAND_TREE = {
                 "all": {}
             }
         },
-
         # ======================================================
         # SERVER
         # ======================================================
-
         "server": {
             "add": {},
             "delete": {},
             "list": {}
         }
     },
-
     # ==========================================================
     # ASTRA AI
     # ==========================================================
-
     "ai": {},
-
     # ==========================================================
     # ASTRA OCUNT
     # ==========================================================
-
     "ao": {
         "services": {
             "-stop": {},
             "-start": {},
         },
     },
-
     # ==========================================================
     # ASTRA API
     # ==========================================================
-
     "as-api": {},
     # ==========================================================
     # DISTROS
     # ==========================================================
-
     "$arxsage": {},
-
     "$depsage": {},
-
     "$devsage": {},
-
     "$linuxsage": {},
-
     # ==========================================================
     # LAUNCHER
     # ==========================================================
-
     "\\launcher": {},
-
     # ==========================================================
     # RETO
     # ==========================================================
-
-    "astra-sage-reto": {},
-    
-    # ==========================================================
-    # Astra-Distro
-    # ==========================================================
-    "astra-distro": {
-        "list": "",
-        "install": "<Distro>",
-        "join": "<Distro>",
-        "remove": "<Distro>",
-        "info": "<Distro>",
-        "default": "<Distro>",
-        "version": "",
-        "help": ""
-    },
+    "astra-sage-reto": {}, 
 }
 
 
@@ -916,8 +863,6 @@ def main():
         run_ao_command(parcalar)
       elif parcalar[0] == "ai":
         run_ai_command(parcalar)
-      elif parcalar[0] == "astra-distro":
-      	astra_distro(parcalar[1:])
       elif parcalar[0] == "as" and len(parcalar) >= 2 and parcalar[1] == "!system":
         if parcalar[2] == "-reset":
         	run_system_command(parcalar)
@@ -1104,7 +1049,29 @@ def main():
                   print(f"    {item}")
           except Exception as hata:
             print(f"[HATA] {hata}")
-        elif parcalar[1] == "pip":
+        elif eylem == "tree":
+        	run_tree(parcalar[2:])
+        elif eylem == "python":
+          subcommand = (
+              parcalar[2]
+              if len(parcalar) >= 3
+              else "info"
+          )
+
+          args = (
+              parcalar[3:]
+              if len(parcalar) >= 4
+              else []
+          )
+
+          run_python_command(
+              subcommand,
+              args
+          )
+
+          continue
+        
+        elif eylem == "pip":
           subcommand = (
               parcalar[2]
               if len(parcalar) >= 3
@@ -1127,9 +1094,21 @@ def main():
             if len(parcalar) < 3:
                 print("Kullanım: as sys -neofetch")
                 continue
-
+            if parcalar[2] == "--distro":
+            	try:
+            		print(f"{Renk.YESIL} AstraSage Dağıtımı: {distro.name}{Renk.RESET}")
+            		continue
+            	except NameError:
+            		print(f"{Renk.KIRMIZI} DISTRO Değişkeni Bulunamadı!!{Renk.RESET}")
+            		continue
+            if parcalar[2] == "--version":
+            	try:
+            		print(f"{Renk.YESIL} AstraSage VERSIYONU: {VERSION}{Renk.RESET}")
+            		continue
+            	except NameError:
+            		print(f"{Renk.KIRMIZI} VERSION Değişkeni Bulunamadı!!{Renk.RESET}")
+            		continue
             uptime = int(time.time() - START_TIME)
-
             saat = uptime // 3600
             dakika = (uptime % 3600) // 60
             saniye = uptime % 60
@@ -1412,11 +1391,9 @@ def show_progress_bar(toplam_adim=15, gecikme=0.05):
         sys.stdout.flush()
         time.sleep(gecikme)
     print()
-    
-ALL_COMMANDS = []
 
 def komut(cmd, aciklama):
-    ALL_COMMANDS.append(cmd)
+    ALL_COMMANDS.append((cmd, aciklama))
     print(f"  {cmd:<37} → {aciklama}")
 
 #Yardım Menüsü
@@ -1443,9 +1420,11 @@ def help_menu():
     print(f"\n{Renk.YESIL}[ PYTHON ]{Renk.RESET}")
     komut("as python run <Dosya>", "Python dosyasını çalıştırır.")
     komut("as python exec <Kod>", "Python kodunu çalıştırır.")
-    komut("as python version", "Python sürümünü gösterir.")
-    komut("as python path", "Python çalıştırıcısının yolunu gösterir.")
+    komut("as python --version", "Python sürümünü gösterir.")
+    komut("as python shell", "Python çalıştırıcısının yolunu gösterir.")
     komut("as python info", "Python hakkında bilgi verir.")
+    komut("as python doctor", "Python Da Sorun Varmı Kontrol Eder")
+    komut("as python module", "Python Modülü hakkında bilgi verir.")
 
     print(f"\n{Renk.YESIL}[ PIP ]{Renk.RESET}")
     komut("as pip install <Paket>", "Python paketi yükler.")
@@ -1485,8 +1464,11 @@ def help_menu():
     komut("as server add", "Yeni sunucu ekler.")
     komut("as platform -get <Bilgi>", "Platform bilgilerini gösterir.")
     komut("as history", "Komut geçmişini listeler.")
+    
     print(f"\n{Renk.YESIL}[ SİSTEM ]{Renk.RESET}")
-    komut("as sys -neofetch", "Sistem Hakkında bilgi verir.")
+    komut("as sys -neofetch", "Sistem hakkında bilgi verir.")
+    komut("as sys --version", "AstraSage sürümünü gösterir.")
+    komut("as sys --distro", "Aktif AstraSage dağıtımını gösterir.")    
     
     print(f"\n{Renk.YESIL}[ ALIAS ]{Renk.RESET}")
     komut('as alias <isim>="<komut>"', "Yeni kısayol tanımlar.")
